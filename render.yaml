@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: hyperlocal-service-marketplace
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.20.0
+      - key: NODE_ENV
+        value: production

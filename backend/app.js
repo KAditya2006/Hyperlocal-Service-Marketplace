@@ -41,51 +41,54 @@ app.use(express.urlencoded({ extended: true }));
  * These must be defined before static files and SPA routing.
  */
 
-const SITE_URL = process.env.RENDER_EXTERNAL_URL || 'http://localhost:5000';
-
 app.get('/sitemap.xml', (req, res) => {
+  // Use RENDER_EXTERNAL_URL if available, otherwise fallback to current request origin
+  const siteUrl = process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`;
   const lastMod = new Date().toISOString().split('T')[0];
   
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>${SITE_URL}/</loc>
+    <loc>${siteUrl}/</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>${SITE_URL}/search</loc>
+    <loc>${siteUrl}/search</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>${SITE_URL}/login</loc>
+    <loc>${siteUrl}/login</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>${SITE_URL}/signup</loc>
+    <loc>${siteUrl}/signup</loc>
     <lastmod>${lastMod}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
 </urlset>`;
 
-  res.header('Content-Type', 'application/xml');
-  res.send(sitemap);
+  res.set('Content-Type', 'application/xml');
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Cache-Control', 'public, max-age=0, must-revalidate'); 
+  res.status(200).send(sitemap.trim());
 });
 
 app.get('/robots.txt', (req, res) => {
+  const siteUrl = process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`;
   const robots = `User-agent: *
 Allow: /
 
-Sitemap: ${SITE_URL}/sitemap.xml`;
+Sitemap: ${siteUrl}/sitemap.xml`;
 
-  res.header('Content-Type', 'text/plain');
-  res.send(robots);
+  res.set('Content-Type', 'text/plain');
+  res.status(200).send(robots);
 });
 
 /**
@@ -127,8 +130,8 @@ if (hasFrontendBuild) {
   // Serve static assets from the frontend build
   app.use(express.static(frontendDistPath));
 
-  // Catch-all route to serve index.html for React SPA (Express 5 named wildcard)
-  app.get('/*splat', (req, res) => {
+  // Catch-all route to serve index.html for React SPA (Express 5 compatible regex)
+  app.get(/^(?!\/api|\/sitemap\.xml|\/robots\.txt).+/, (req, res) => {
     res.sendFile(path.join(frontendDistPath, 'index.html'));
   });
 } else {

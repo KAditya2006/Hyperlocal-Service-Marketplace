@@ -59,6 +59,23 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/user', userRoutes);
 
 const frontendDistPath = path.join(__dirname, '../frontend/dist');
+const frontendPublicPath = path.join(__dirname, '../frontend/public');
+
+// SEO Routes - Explicitly serve sitemap and robots
+app.get('/sitemap.xml', (req, res) => {
+  const sitemapPath = require('fs').existsSync(path.join(frontendDistPath, 'sitemap.xml'))
+    ? path.join(frontendDistPath, 'sitemap.xml')
+    : path.join(frontendPublicPath, 'sitemap.xml');
+  res.sendFile(sitemapPath);
+});
+
+app.get('/robots.txt', (req, res) => {
+  const robotsPath = require('fs').existsSync(path.join(frontendDistPath, 'robots.txt'))
+    ? path.join(frontendDistPath, 'robots.txt')
+    : path.join(frontendPublicPath, 'robots.txt');
+  res.sendFile(robotsPath);
+});
+
 const hasFrontendBuild = require('fs').existsSync(path.join(frontendDistPath, 'index.html'));
 
 // Serve Frontend when a production build is available

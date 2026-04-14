@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://hyperlocal-service-marketplace-urkv.onrender.com/sitemap.xml

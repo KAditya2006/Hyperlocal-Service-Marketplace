@@ -23,7 +23,10 @@ const serializeUser = (user) => ({
   isVerified: user.isVerified
 });
 
-exports.register = async (req, res) => {
+exports.register = async (req, res, next) => {
+  console.log('--- Registration Attempt ---');
+  console.log('Email:', req.body.email);
+  console.log('Role:', req.body.role);
   try {
     const { name, email, password, role } = req.body;
     const requestedRole = role === 'worker' ? 'worker' : 'user';
@@ -71,11 +74,11 @@ exports.register = async (req, res) => {
       userId: user._id
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.verifyOTP = async (req, res) => {
+exports.verifyOTP = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
 
@@ -102,11 +105,11 @@ exports.verifyOTP = async (req, res) => {
       user: serializeUser(user)
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.login = async (req, res) => {
+exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
@@ -131,11 +134,11 @@ exports.login = async (req, res) => {
       user: serializeUser(user)
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.resendOTP = async (req, res) => {
+exports.resendOTP = async (req, res, next) => {
   try {
     const { email } = req.body;
 
@@ -161,18 +164,22 @@ exports.resendOTP = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'OTP sent successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.me = async (req, res) => {
-  res.status(200).json({
-    success: true,
-    user: serializeUser(req.user)
-  });
+exports.me = async (req, res, next) => {
+  try {
+    res.status(200).json({
+      success: true,
+      user: serializeUser(req.user)
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
-exports.forgotPassword = async (req, res) => {
+exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
     if (!email) {
@@ -199,11 +206,11 @@ exports.forgotPassword = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'If an account exists, a reset code has been sent' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.resetPassword = async (req, res) => {
+exports.resetPassword = async (req, res, next) => {
   try {
     const { email, token, password } = req.body;
 
@@ -229,6 +236,6 @@ exports.resetPassword = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Password updated successfully' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };

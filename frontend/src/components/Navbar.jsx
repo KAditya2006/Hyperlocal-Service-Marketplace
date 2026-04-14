@@ -4,10 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { Bell, Menu, Search, LogOut, X } from 'lucide-react';
 import { getNotifications, markNotificationsRead } from '../services/api';
 import BrandLogo from './BrandLogo';
+import { fallbackAvatar, withImageFallback } from '../utils/images';
 
 const Navbar = () => {
   const { user, token, logout } = useAuth();
-  const fallbackAvatar = 'https://res.cloudinary.com/di9yc9sc8/image/upload/v1712668582/default-avatar_v0jzqy.png';
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -91,7 +91,7 @@ const Navbar = () => {
               <LogOut size={20} />
             </button>
             <Link to="/profile" className="w-10 h-10 rounded-full border-2 border-primary-100 overflow-hidden hover:scale-105 transition-transform">
-              <img src={user?.avatar || fallbackAvatar} alt="Avatar" className="w-full h-full object-cover" />
+              <img src={user?.avatar || fallbackAvatar} onError={withImageFallback()} alt="Avatar" className="w-full h-full object-cover" />
             </Link>
             </div>
           ) : (

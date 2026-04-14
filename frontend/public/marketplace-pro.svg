@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650" role="img" aria-label="Local service professional">
+  <rect width="900" height="650" rx="48" fill="#f8fafc"/>
+  <rect x="90" y="96" width="720" height="420" rx="36" fill="#ffffff" stroke="#e2e8f0" stroke-width="8"/>
+  <path fill="#7c3aed" d="M450 72c-82 0-148 64-148 143 0 107 148 269 148 269s148-162 148-269C598 136 532 72 450 72Z"/>
+  <path fill="#fff" d="M354 245 450 166l96 79v123c0 17-13 30-30 30H384c-17 0-30-13-30-30V245Z"/>
+  <path fill="#14b8a6" d="M388 284h124v34H388z"/>
+  <path fill="#f59e0b" d="M433 247h34v121h-34z"/>
+  <path fill="#312e81" d="m450 188-113 94-24-29 137-114 137 114-24 29-113-94Z"/>
+  <circle cx="450" cy="216" r="28" fill="#14b8a6"/>
+  <rect x="130" y="548" width="180" height="22" rx="11" fill="#cbd5e1"/>
+  <rect x="342" y="548" width="216" height="22" rx="11" fill="#ddd6fe"/>
+  <rect x="590" y="548" width="180" height="22" rx="11" fill="#cbd5e1"/>
+</svg>

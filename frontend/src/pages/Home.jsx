@@ -124,7 +124,14 @@ const Home = () => {
           </div>
           <div className="relative max-w-xl mx-auto lg:max-w-none w-full">
             <div className="aspect-square bg-gradient-to-tr from-primary-600 to-indigo-600 rounded-[32px] sm:rounded-[60px] sm:rotate-3 relative z-10 overflow-hidden premium-shadow">
-              <img src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=2669&auto=format&fit=crop" className="w-full h-full object-cover sm:-rotate-3 scale-110" alt="Pro" />
+              <img 
+                src="https://images.unsplash.com/photo-1581578731548-c64695cc6954?auto=format&fit=crop&q=80&w=1200" 
+                className="w-full h-full object-cover sm:-rotate-3 scale-110" 
+                alt="Professional Service"
+                onError={(e) => {
+                  e.target.src = 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&q=80&w=1200';
+                }}
+              />
             </div>
             <div className="hidden sm:block absolute top-[-20px] left-[-20px] w-full h-full border-2 border-primary-500/30 rounded-[60px]" />
           </div>

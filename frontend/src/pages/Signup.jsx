@@ -20,7 +20,9 @@ const Signup = () => {
         navigate('/verify-otp', { state: { email: formData.email } });
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      console.error('Registration error detail:', error);
+      const msg = error.response?.data?.message || error.message || 'Registration failed';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

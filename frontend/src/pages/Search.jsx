@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { CalendarDays, MapPin, MessageSquare, Search as SearchIcon, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatInr } from '../utils/formatters';
+import { fallbackAvatar, withImageFallback } from '../utils/images';
 
 const SearchPage = () => {
   const location = useLocation();
@@ -141,7 +142,12 @@ const SearchPage = () => {
           ) : workers.map((worker) => (
             <article key={worker._id} className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-100 premium-shadow flex flex-col gap-5">
               <div className="flex gap-4">
-                <img src={worker.user?.avatar} alt={worker.user?.name} className="w-16 h-16 rounded-2xl object-cover" />
+                <img 
+                  src={worker.user?.avatar || fallbackAvatar} 
+                  onError={withImageFallback()} 
+                  alt={worker.user?.name} 
+                  className="w-16 h-16 rounded-2xl object-cover" 
+                />
                 <div className="min-w-0">
                   <Link to={`/workers/${worker.user?._id}`} className="font-bold text-xl text-slate-900 truncate hover:text-primary-600 block">{worker.user?.name}</Link>
                   <p className="flex items-center gap-1 text-sm text-amber-500 font-bold">

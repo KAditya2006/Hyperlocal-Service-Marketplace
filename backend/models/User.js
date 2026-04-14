@@ -36,7 +36,7 @@ const userSchema = new mongoose.Schema({
   },
   avatar: {
     type: String,
-    default: 'https://res.cloudinary.com/di9yc9sc8/image/upload/v1712668582/default-avatar_v0jzqy.png'
+    default: '/avatar.svg'
   },
   location: {
     type: {
@@ -61,10 +61,9 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ location: '2dsphere' });
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+userSchema.pre('save', async function() {
+  if (!this.isModified('password')) return;
   this.password = await bcrypt.hash(this.password, 12);
-  next();
 });
 
 // Method to compare password

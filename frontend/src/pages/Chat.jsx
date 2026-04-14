@@ -6,6 +6,7 @@ import Navbar from '../components/Navbar';
 import { MessageSquare, Send, Image as ImageIcon, Search, Phone, MoreVertical, CheckCheck, User as UserIcon, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { fallbackAvatar, withImageFallback } from '../utils/images';
 
 const ChatPage = () => {
   const { user } = useAuth();
@@ -137,8 +138,6 @@ const ChatPage = () => {
     return otherParticipant?.name?.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  const fallbackAvatar = 'https://res.cloudinary.com/di9yc9sc8/image/upload/v1712668582/default-avatar_v0jzqy.png';
-
   if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-400">Loading your conversations...</div>;
 
   return (
@@ -166,6 +165,7 @@ const ChatPage = () => {
                 <div className="relative">
                   <img 
                     src={chat.participants.find(p => p._id !== user.id)?.avatar || fallbackAvatar} 
+                    onError={withImageFallback()}
                     alt="User" 
                     className="w-14 h-14 rounded-2xl object-cover border-2 border-white premium-shadow"
                   />
@@ -200,7 +200,8 @@ const ChatPage = () => {
                 <div className="flex items-center gap-4">
                   <button onClick={() => setActiveChat(null)} className="md:hidden text-slate-400 font-bold text-xl">Back</button>
                   <img 
-                    src={activeChat.participants.find(p => p._id !== user.id)?.avatar} 
+                    src={activeChat.participants.find(p => p._id !== user.id)?.avatar || fallbackAvatar} 
+                    onError={withImageFallback()}
                     className="w-12 h-12 rounded-2xl object-cover" 
                     alt="Active" 
                   />

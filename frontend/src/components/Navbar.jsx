@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Bell, Menu, Search, LogOut, X } from 'lucide-react';
+import { io } from 'socket.io-client';
 import { getNotifications, markNotificationsRead } from '../services/api';
 import BrandLogo from './BrandLogo';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
@@ -27,6 +28,25 @@ const Navbar = () => {
     };
 
     fetchNotifications();
+
+    // Socket for real-time notifications
+    const API_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || window.location.origin;
+    const socket = io(API_URL, {
+      auth: { token }
+    });
+
+    socket.on('new_notification', (notification) => {
+      setNotifications(prev => [notification, ...prev.slice(0, 4)]);
+      setUnread(prev => prev + 1);
+      toast((t) => (
+        <span className="flex items-center gap-2">
+          <Bell size={18} className="text-primary-600" />
+          <b>{notification.title}:</b> {notification.text}
+        </span>
+      ), { duration: 4000 });
+    });
+
+    return () => socket.disconnect();
   }, [token]);
 
   const handleNotificationOpen = async () => {

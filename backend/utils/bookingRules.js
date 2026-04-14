@@ -1,6 +1,7 @@
 const BOOKING_TRANSITIONS = {
   pending: ['accepted', 'rejected', 'cancelled'],
-  accepted: ['completed', 'cancelled'],
+  accepted: ['in_progress', 'cancelled'],
+  in_progress: ['completed', 'cancelled'],
   rejected: [],
   completed: [],
   cancelled: []

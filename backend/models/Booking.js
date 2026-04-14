@@ -21,9 +21,28 @@ const bookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'accepted', 'rejected', 'completed', 'cancelled'],
+    enum: ['pending', 'accepted', 'in_progress', 'completed', 'cancelled', 'rejected'],
     default: 'pending'
   },
+  startOTP: String,
+  startOTPVerified: {
+    type: Boolean,
+    default: false
+  },
+  completionOTP: String,
+  completionOTPVerified: {
+    type: Boolean,
+    default: false
+  },
+  workerLocationSnapshots: [{
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: [Number],
+    timestamp: { type: Date, default: Date.now }
+  }],
   address: {
     type: String,
     required: true

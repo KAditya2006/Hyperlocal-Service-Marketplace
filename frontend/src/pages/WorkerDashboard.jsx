@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getBookings, getWorkerProfile, updateBookingStatus, updateWorkerProfile, uploadKYC } from '../services/api';
+import { getBookings, getWorkerProfile, updateBookingStatus, updateWorkerProfile, uploadKYC, verifyCompletionOTP } from '../services/api';
 import Navbar from '../components/Navbar';
-import { LayoutDashboard, FileCheck, DollarSign, Briefcase, Star, Clock, AlertCircle, CheckCircle2, Upload, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, FileCheck, DollarSign, Briefcase, Star, Clock, AlertCircle, CheckCircle2, Upload, User as UserIcon, Shield, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { formatInr } from '../utils/formatters';
@@ -13,7 +13,8 @@ const WorkerDashboard = () => {
   const [uploading, setUploading] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [jobsPagination, setJobsPagination] = useState({ page: 1, pages: 1 });
-  const [profileForm, setProfileForm] = useState({ skills: '', experience: 0, bio: '', amount: '', unit: 'hour', availability: true });
+  const [profileForm, setProfileForm] = useState({ skills: '', experience: 0, bio: '', amount: '', unit: 'hour', availabilityStatus: 'Available' });
+  const [otpInput, setOtpInput] = useState({});
   const [savingProfile, setSavingProfile] = useState(false);
   const [activeSection, setActiveSection] = useState('overview');
 
@@ -32,7 +33,7 @@ const WorkerDashboard = () => {
         bio: data.data.bio || '',
         amount: data.data.pricing?.amount || '',
         unit: data.data.pricing?.unit || 'hour',
-        availability: data.data.availability ?? true
+        availabilityStatus: data.data.availabilityStatus || 'Available'
       });
     } catch {
       toast.error('Failed to load profile');
@@ -59,7 +60,7 @@ const WorkerDashboard = () => {
         skills: profileForm.skills.split(',').map((skill) => skill.trim()).filter(Boolean),
         experience: Number(profileForm.experience),
         bio: profileForm.bio,
-        availability: profileForm.availability,
+        availabilityStatus: profileForm.availabilityStatus,
         pricing: {
           amount: Number(profileForm.amount),
           unit: profileForm.unit
@@ -74,13 +75,15 @@ const WorkerDashboard = () => {
     }
   };
 
-  const handleJobStatus = async (bookingId, status) => {
+  const handleCompletionVerify = async (bookingId) => {
     try {
-      await updateBookingStatus(bookingId, status);
-      toast.success('Job updated');
+      if (!otpInput[bookingId]) return toast.error('Please enter OTP');
+      await verifyCompletionOTP(bookingId, otpInput[bookingId]);
+      toast.success('Job completed successfully!');
       fetchBookings(jobsPagination.page);
+      fetchProfile();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not update job');
+      toast.error(error.response?.data?.message || 'Invalid OTP');
     }
   };
 
@@ -279,10 +282,15 @@ const WorkerDashboard = () => {
                 <option value="job">Per job</option>
               </select>
               <textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} placeholder="Bio" className="md:col-span-2 bg-slate-50 rounded-2xl px-4 py-4 outline-none h-28" />
-              <label className="flex items-center gap-3 font-bold text-slate-600">
-                <input type="checkbox" checked={profileForm.availability} onChange={(e) => setProfileForm({ ...profileForm, availability: e.target.checked })} className="w-5 h-5 accent-primary-600" />
-                Available for new bookings
-              </label>
+              <select 
+                value={profileForm.availabilityStatus} 
+                onChange={(e) => setProfileForm({ ...profileForm, availabilityStatus: e.target.value })} 
+                className="bg-slate-50 rounded-2xl px-4 py-4 outline-none border border-slate-100 font-bold"
+              >
+                <option value="Available">Available</option>
+                <option value="Busy" disabled>Busy (In Job)</option>
+                <option value="Offline">Offline</option>
+              </select>
               <button disabled={savingProfile} className="md:col-span-2 py-4 bg-primary-600 text-white rounded-2xl font-bold disabled:opacity-50">
                 {savingProfile ? 'Saving...' : 'Save Profile'}
               </button>
@@ -311,7 +319,27 @@ const WorkerDashboard = () => {
                       </>
                     )}
                     {booking.status === 'accepted' && (
-                      <button onClick={() => handleJobStatus(booking._id, 'completed')} className="px-4 py-2 rounded-xl bg-primary-600 text-white font-bold">Complete</button>
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="bg-primary-50 px-4 py-2 rounded-xl text-center border border-primary-100">
+                          <p className="text-[10px] font-bold text-primary-500 uppercase">Tell User this OTP</p>
+                          <p className="text-xl font-black text-primary-700 tracking-widest">{booking.startOTP}</p>
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 italic">Wait for user to verify</p>
+                      </div>
+                    )}
+                    {booking.status === 'in_progress' && (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="relative">
+                          <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                          <input 
+                            placeholder="User's OTP" 
+                            className="pl-10 pr-4 py-2 rounded-xl border border-slate-200 outline-none w-32 font-bold"
+                            value={otpInput[booking._id] || ''}
+                            onChange={(e) => setOtpInput({ ...otpInput, [booking._id]: e.target.value })}
+                          />
+                        </div>
+                        <button onClick={() => handleCompletionVerify(booking._id)} className="px-6 py-2 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-all">Verify & Finish</button>
+                      </div>
                     )}
                   </div>
                 </div>

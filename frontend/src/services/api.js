@@ -70,6 +70,8 @@ export const getBookings = (params) => api.get('/bookings', { params });
 export const createBooking = (data) => api.post('/bookings', data);
 export const updateBookingStatus = (bookingId, status) => api.patch(`/bookings/${bookingId}/status`, { status });
 export const updateBookingPayment = (bookingId, data) => api.patch(`/bookings/${bookingId}/payment`, data);
+export const verifyStartOTP = (bookingId, otp) => api.post(`/bookings/${bookingId}/verify-start-otp`, { otp });
+export const verifyCompletionOTP = (bookingId, otp) => api.post(`/bookings/${bookingId}/verify-completion-otp`, { otp });
 export const createReview = (bookingId, data) => api.post(`/bookings/${bookingId}/review`, data);
 
 // Notification APIs

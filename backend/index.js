@@ -121,6 +121,46 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('join_booking', async (bookingId) => {
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return;
+
+    // Only user or worker assigned can join
+    if (booking.user.toString() !== socket.user._id.toString() && 
+        booking.worker.toString() !== socket.user._id.toString()) return;
+
+    socket.join(`booking_${bookingId}`);
+    console.log(`User ${socket.user._id.toString()} joined booking room: ${bookingId}`);
+  });
+
+  socket.on('update_worker_location', async (data) => {
+    const { bookingId, coordinates } = data;
+    if (!bookingId || !coordinates) return;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking || booking.worker.toString() !== socket.user._id.toString()) return;
+    if (booking.status !== 'accepted' && booking.status !== 'in_progress') return;
+
+    // Emit live update to user
+    io.to(`booking_${bookingId}`).emit('worker_location_live', {
+      bookingId,
+      coordinates,
+      timestamp: new Date()
+    });
+
+    // Periodic persistence (every 60s approx)
+    const lastSnapshot = booking.workerLocationSnapshots[booking.workerLocationSnapshots.length - 1];
+    const now = new Date();
+    
+    if (!lastSnapshot || (now - lastSnapshot.timestamp) > 60000) {
+      booking.workerLocationSnapshots.push({
+        coordinates,
+        timestamp: now
+      });
+      await booking.save();
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected');
   });

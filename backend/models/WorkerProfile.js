@@ -27,9 +27,10 @@ const workerProfileSchema = new mongoose.Schema({
       default: 'hour'
     }
   },
-  availability: {
-    type: Boolean,
-    default: true
+  availabilityStatus: {
+    type: String,
+    enum: ['Available', 'Busy', 'Offline', 'Pending Verification'],
+    default: 'Available'
   },
   averageRating: {
     type: Number,
@@ -53,6 +54,11 @@ const workerProfileSchema = new mongoose.Schema({
       url: String,
       publicId: String
     },
+    certificates: [{
+      url: String,
+      publicId: String,
+      name: String
+    }],
     status: {
       type: String,
       enum: ['none', 'pending', 'verified', 'rejected'],

@@ -5,6 +5,7 @@ const AuditLog = require('../models/AuditLog');
 const Review = require('../models/Review');
 const { calculateBookingPrice, canTransitionBooking, canUpdatePaymentStatus, getPagination } = require('../utils/bookingRules');
 const createNotification = require('../utils/createNotification');
+const { generateOTP, sendOTPEmail } = require('../services/otpService');
 
 const populateBooking = (query) => {
   return query
@@ -163,6 +164,32 @@ exports.updateBookingStatus = async (req, res) => {
       entityId: booking._id
     });
 
+    // Handle OTP Generation & Worker Status
+    if (status === 'accepted') {
+      const otp = generateOTP();
+      booking.startOTP = otp;
+      await booking.save();
+      
+      const workerPopulated = await User.findById(booking.worker);
+      await sendOTPEmail(workerPopulated.email, otp, 'Start');
+
+      await createNotification({
+        user: booking.worker,
+        type: 'otp',
+        title: 'Start OTP Sent',
+        message: 'Your job start OTP has been sent to your email.',
+        entityType: 'Booking',
+        entityId: booking._id
+      });
+    }
+
+    if (status === 'completed' || status === 'cancelled' || status === 'rejected') {
+      await WorkerProfile.findOneAndUpdate(
+        { user: booking.worker },
+        { availabilityStatus: 'Available' }
+      );
+    }
+
     const populatedBooking = await populateBooking(Booking.findById(booking._id));
     res.status(200).json({ success: true, data: populatedBooking });
   } catch (error) {
@@ -282,6 +309,88 @@ exports.createReview = async (req, res) => {
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: 'This booking has already been reviewed' });
     }
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.verifyStartOTP = async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking || booking.status !== 'accepted') {
+      return res.status(400).json({ success: false, message: 'Booking not in valid state for verification' });
+    }
+
+    if (booking.startOTP !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid start OTP' });
+    }
+
+    booking.status = 'in_progress';
+    booking.startOTPVerified = true;
+    await booking.save();
+
+    await WorkerProfile.findOneAndUpdate(
+      { user: booking.worker },
+      { availabilityStatus: 'Busy' }
+    );
+
+    await createNotification({
+      user: booking.worker,
+      type: 'booking',
+      title: 'Job Started',
+      message: `User verified your OTP. Job is now in progress.`,
+      entityType: 'Booking',
+      entityId: booking._id
+    });
+
+    // Generate Completion OTP for later
+    const completionOTP = generateOTP();
+    booking.completionOTP = completionOTP;
+    await booking.save();
+
+    const userPopulated = await User.findById(booking.user);
+    await sendOTPEmail(userPopulated.email, completionOTP, 'Completion');
+
+    res.status(200).json({ success: true, message: 'Job verified and started', data: booking });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.verifyCompletionOTP = async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const booking = await Booking.findById(req.params.id);
+
+    if (!booking || booking.status !== 'in_progress') {
+      return res.status(400).json({ success: false, message: 'Booking is not in progress' });
+    }
+
+    if (booking.completionOTP !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid completion OTP' });
+    }
+
+    booking.status = 'completed';
+    booking.completionOTPVerified = true;
+    await booking.save();
+
+    await WorkerProfile.findOneAndUpdate(
+      { user: booking.worker },
+      { availabilityStatus: 'Available' }
+    );
+
+    await createNotification({
+      user: booking.user,
+      type: 'booking',
+      title: 'Job Completed',
+      message: `Your job has been successfully verified and completed.`,
+      entityType: 'Booking',
+      entityId: booking._id
+    });
+
+    res.status(200).json({ success: true, message: 'Job verified and completed', data: booking });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };

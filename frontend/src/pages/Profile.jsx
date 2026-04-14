@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { createReview, getBookings, updateBookingPayment, updateBookingStatus } from '../services/api';
+import { createReview, getBookings, updateBookingPayment, updateBookingStatus, verifyStartOTP } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { CalendarDays, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock, XCircle, Key, ShieldCheck, MapPin } from 'lucide-react';
+import TrackingMap from '../components/TrackingMap';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { formatInr } from '../utils/formatters';
@@ -11,6 +12,7 @@ import { formatInr } from '../utils/formatters';
 const statusStyles = {
   pending: 'bg-amber-50 text-amber-700',
   accepted: 'bg-blue-50 text-blue-700',
+  in_progress: 'bg-indigo-50 text-indigo-700 border border-indigo-100',
   rejected: 'bg-rose-50 text-rose-700',
   completed: 'bg-emerald-50 text-emerald-700',
   cancelled: 'bg-slate-100 text-slate-600'
@@ -23,6 +25,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [reviewForms, setReviewForms] = useState({});
   const [pagination, setPagination] = useState({ page: 1, pages: 1 });
+  const [otpInput, setOtpInput] = useState({});
 
   useEffect(() => {
     fetchBookings();
@@ -60,18 +63,14 @@ const Profile = () => {
     }
   };
 
-  const submitReview = async (bookingId) => {
-    const review = reviewForms[bookingId] || {};
+  const handleStartVerify = async (bookingId) => {
     try {
-      await createReview(bookingId, {
-        rating: review.rating || 5,
-        comment: review.comment || ''
-      });
-      toast.success('Review submitted');
-      setReviewForms((current) => ({ ...current, [bookingId]: { rating: 5, comment: '' } }));
+      if (!otpInput[bookingId]) return toast.error('Please enter OTP');
+      await verifyStartOTP(bookingId, otpInput[bookingId]);
+      toast.success('Job started!');
       fetchBookings(pagination.page);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not submit review');
+      toast.error(error.response?.data?.message || 'Invalid OTP');
     }
   };
 
@@ -97,6 +96,32 @@ const Profile = () => {
           >
             Edit Profile
           </button>
+        </section>
+
+        <section className="bg-white rounded-3xl border border-slate-100 premium-shadow p-6 sm:p-8">
+           <div className="flex items-center gap-3 mb-6">
+              <ShieldCheck className="text-primary-600" />
+              <h2 className="text-2xl font-bold font-heading text-slate-900">Account Verification</h2>
+           </div>
+           
+           <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <div className="flex items-start gap-4">
+                 <div className={`p-3 rounded-2xl ${user?.isAdminApproved ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                    {user?.isAdminApproved ? <CheckCircle2 size={24} /> : <Clock size={24} />}
+                 </div>
+                 <div>
+                    <h4 className="font-bold text-slate-900">{user?.isAdminApproved ? 'Fully Verified' : 'Verification Required'}</h4>
+                    <p className="text-sm text-slate-500 font-medium">
+                       {user?.isAdminApproved 
+                          ? 'Your account is verified. You have full access to all features.' 
+                          : 'Please upload your ID proof to start making bookings.'}
+                    </p>
+                 </div>
+              </div>
+              {!user?.isAdminApproved && (
+                 <button className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all">Upload ID</button>
+              )}
+           </div>
         </section>
 
         <section className="space-y-4">
@@ -129,25 +154,53 @@ const Profile = () => {
                     {formatInr(booking.totalPrice)} - Payment {booking.paymentStatus}
                   </p>
                   {booking.additionalNotes && <p className="text-slate-600">{booking.additionalNotes}</p>}
+                  
+                  {(booking.status === 'accepted' || booking.status === 'in_progress') && (
+                    <div className="mt-4">
+                       <div className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-900">
+                          <MapPin size={16} className="text-primary-600" />
+                          <span>Live Worker Tracking</span>
+                       </div>
+                       <TrackingMap 
+                         bookingId={booking._id} 
+                         userLocation={[user.location.coordinates[1], user.location.coordinates[0]]} 
+                       />
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap gap-2 lg:justify-end">
-                  {user?.role === 'worker' && booking.status === 'pending' && (
-                    <>
-                      <button onClick={() => changeStatus(booking._id, 'accepted')} className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold flex items-center gap-2"><CheckCircle2 size={18} /> Accept</button>
-                      <button onClick={() => changeStatus(booking._id, 'rejected')} className="px-4 py-2 rounded-xl bg-rose-50 text-rose-700 font-bold flex items-center gap-2"><XCircle size={18} /> Reject</button>
-                    </>
-                  )}
-                  {user?.role === 'worker' && booking.status === 'accepted' && (
-                    <button onClick={() => changeStatus(booking._id, 'completed')} className="px-4 py-2 rounded-xl bg-primary-600 text-white font-bold">Mark Completed</button>
-                  )}
-                  {user?.role === 'user' && ['pending', 'accepted'].includes(booking.status) && (
-                    <button onClick={() => changeStatus(booking._id, 'cancelled')} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">Cancel</button>
-                  )}
-                  {user?.role === 'user' && booking.paymentStatus !== 'paid' && ['accepted', 'completed'].includes(booking.status) && (
-                    <button onClick={() => changePayment(booking._id, 'paid')} className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold">Mark Paid</button>
-                  )}
-                </div>
+                  <div className="flex flex-wrap gap-3 lg:justify-end">
+                    {booking.status === 'accepted' && (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <div className="relative">
+                          <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                          <input 
+                            placeholder="Worker's OTP" 
+                            className="pl-10 pr-4 py-2 rounded-xl border border-slate-200 outline-none w-36 font-bold"
+                            value={otpInput[booking._id] || ''}
+                            onChange={(e) => setOtpInput({ ...otpInput, [booking._id]: e.target.value })}
+                          />
+                        </div>
+                        <button onClick={() => handleStartVerify(booking._id)} className="px-6 py-2 rounded-xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-all">Verify & Start</button>
+                      </div>
+                    )}
+
+                    {booking.status === 'in_progress' && (
+                       <div className="flex flex-col items-end gap-2">
+                          <div className="bg-emerald-50 px-4 py-2 rounded-xl text-center border border-emerald-100">
+                            <p className="text-[10px] font-bold text-emerald-500 uppercase">Tell Worker this OTP</p>
+                            <p className="text-xl font-black text-emerald-700 tracking-widest">{booking.completionOTP}</p>
+                          </div>
+                      </div>
+                    )}
+
+                    {user?.role === 'user' && ['pending', 'accepted'].includes(booking.status) && (
+                      <button onClick={() => changeStatus(booking._id, 'cancelled')} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">Cancel</button>
+                    )}
+                    {user?.role === 'user' && booking.paymentStatus !== 'paid' && ['accepted', 'completed'].includes(booking.status) && (
+                      <button onClick={() => changePayment(booking._id, 'paid')} className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold">Mark Paid</button>
+                    )}
+                  </div>
 
                 {user?.role === 'user' && booking.status === 'completed' && !booking.review && (
                   <div className="lg:basis-full grid sm:grid-cols-[140px_1fr_auto] gap-3 pt-4 border-t border-slate-100">

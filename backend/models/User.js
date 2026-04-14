@@ -30,6 +30,26 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isAdminApproved: {
+    type: Boolean,
+    default: false
+  },
+  kyc: {
+    idProof: {
+      url: String,
+      publicId: String
+    },
+    selfie: {
+      url: String,
+      publicId: String
+    },
+    status: {
+      type: String,
+      enum: ['none', 'pending', 'verified', 'rejected'],
+      default: 'none'
+    },
+    rejectionReason: String
+  },
   phone: {
     type: String,
     trim: true
@@ -49,6 +69,11 @@ const userSchema = new mongoose.Schema({
       default: [0, 0]
     },
     address: String,
+    building: String,
+    area: String,
+    landmark: String,
+    city: String,
+    pincode: String,
     homeNumber: String
   },
   createdAt: {

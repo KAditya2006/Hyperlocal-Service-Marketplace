@@ -34,6 +34,15 @@ const imageFileFilter = (req, file, cb) => {
   cb(null, allowed.includes(file.mimetype));
 };
 
+const profileStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'marketplace_profiles',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    transformation: [{ width: 500, height: 500, crop: 'limit' }]
+  }
+});
+
 const upload = multer({
   storage: kycStorage,
   fileFilter: kycFileFilter,
@@ -50,4 +59,12 @@ const uploadImage = multer({
   }
 });
 
-module.exports = { cloudinary, upload, uploadImage };
+const uploadAvatar = multer({
+  storage: profileStorage,
+  fileFilter: imageFileFilter,
+  limits: {
+    fileSize: 2 * 1024 * 1024 // 2MB limit for avatars
+  }
+});
+
+module.exports = { cloudinary, upload, uploadImage, uploadAvatar };

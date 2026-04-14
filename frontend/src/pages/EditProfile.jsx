@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
-import { updateProfile } from '../services/api';
-import { User, Mail, Phone, MapPin, Home, ArrowLeft, Save } from 'lucide-react';
+import { updateProfile, updateAvatar } from '../services/api';
+import { User, Mail, Phone, MapPin, Home, ArrowLeft, Save, Camera, Loader2 } from 'lucide-react';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import toast from 'react-hot-toast';
 
@@ -11,6 +11,7 @@ const EditProfile = () => {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -28,6 +29,32 @@ const EditProfile = () => {
       });
     }
   }, [user]);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size must be less than 2MB');
+      return;
+    }
+
+    setUploading(true);
+    const uploadData = new FormData();
+    uploadData.append('avatar', file);
+
+    try {
+      const { data } = await updateAvatar(uploadData);
+      if (data.success) {
+        toast.success('Profile picture updated');
+        setUser({ ...user, avatar: data.avatar });
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -59,9 +86,40 @@ const EditProfile = () => {
         </button>
 
         <div className="bg-white rounded-3xl border border-slate-100 premium-shadow p-6 sm:p-10">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold font-heading text-slate-900">Edit Profile</h1>
-            <p className="text-slate-500 mt-2">Keep your contact and location details up to date.</p>
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div>
+              <h1 className="text-3xl font-bold font-heading text-slate-900">Edit Profile</h1>
+              <p className="text-slate-500 mt-1">Update your personal and location details.</p>
+            </div>
+
+            {/* Avatar Section */}
+            <div className="relative group self-center sm:self-auto">
+              <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-slate-50 premium-shadow bg-white flex items-center justify-center relative">
+                <img 
+                  src={user?.avatar || '/avatar.svg'} 
+                  alt={user?.name}
+                  className={`w-full h-full object-cover transition-opacity ${uploading ? 'opacity-30' : 'opacity-100'}`}
+                />
+                {uploading && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Loader2 className="text-primary-600 animate-spin" size={24} />
+                  </div>
+                )}
+              </div>
+              <label 
+                className="absolute -bottom-2 -right-2 p-2 bg-primary-600 text-white rounded-lg cursor-pointer hover:bg-primary-700 transition-all premium-shadow group-hover:scale-110 active:scale-95"
+                title="Change Photo"
+              >
+                <Camera size={16} />
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  disabled={uploading}
+                />
+              </label>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

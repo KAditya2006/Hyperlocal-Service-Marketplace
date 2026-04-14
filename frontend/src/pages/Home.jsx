@@ -1,0 +1,137 @@
+import React from 'react';
+import Navbar from '../components/Navbar';
+import { useNavigate } from 'react-router-dom';
+import { Search, MapPin, Hammer, Zap, Droplets, Laptop, BookOpen } from 'lucide-react';
+import { motion as Motion } from 'framer-motion';
+
+const CATEGORIES = [
+  { name: 'Plumbing', icon: <Droplets className="text-blue-500" />, color: 'bg-blue-50' },
+  { name: 'Electrical', icon: <Zap className="text-amber-500" />, color: 'bg-amber-50' },
+  { name: 'Carpentry', icon: <Hammer className="text-orange-500" />, color: 'bg-orange-50' },
+  { name: 'Repairing', icon: <Laptop className="text-indigo-500" />, color: 'bg-indigo-50' },
+  { name: 'Tutors', icon: <BookOpen className="text-emerald-500" />, color: 'bg-emerald-50' }
+];
+
+const Home = () => {
+  const navigate = useNavigate();
+  const [query, setQuery] = React.useState('');
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    navigate(`/search${query ? `?q=${encodeURIComponent(query)}` : ''}`);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      <Navbar />
+
+      {/* Hero Section */}
+      <section className="relative h-[650px] flex items-center justify-center overflow-hidden bg-white">
+        {/* Background Gradients */}
+        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary-100/50 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-50 rounded-full blur-[100px]" />
+
+        <div className="relative z-10 text-center max-w-4xl px-6">
+          <Motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
+            <h1 className="text-6xl md:text-7xl font-bold font-heading tracking-tight text-slate-900 leading-[1.1] mb-6">
+              Find Trusted <span className="gradient-text">Service Pros</span> <br /> Near Your Home
+            </h1>
+            <p className="text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+              Connect with verified plumbers, electricians, and more in seconds. Professional service, guaranteed quality, and upfront pricing.
+            </p>
+
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} className="bg-white p-2 rounded-2xl premium-shadow flex flex-col md:flex-row items-center gap-2 max-w-3xl mx-auto border border-slate-100">
+              <div className="flex-1 w-full flex items-center gap-3 px-4 py-3">
+                <Search className="text-slate-400" size={20} />
+                <input 
+                  type="text" 
+                  placeholder="What service do you need?" 
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full text-slate-900 outline-none text-lg font-medium"
+                />
+              </div>
+              <div className="w-[2px] h-8 bg-slate-100 hidden md:block" />
+              <div className="flex-1 w-full flex items-center gap-3 px-4 py-3">
+                <MapPin className="text-slate-400" size={20} />
+                <input 
+                  type="text" 
+                  placeholder="Enter location" 
+                  className="w-full text-slate-900 outline-none text-lg font-medium"
+                />
+              </div>
+              <button className="w-full md:w-auto px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-[0.98]">
+                Search
+              </button>
+            </form>
+          </Motion.div>
+        </div>
+      </section>
+
+      {/* Categories Section */}
+      <section className="py-24 px-6 max-w-7xl mx-auto">
+        <div className="mb-12">
+          <h2 className="text-3xl font-bold font-heading text-slate-900 mb-2">Explore Categories</h2>
+          <p className="text-slate-500 text-lg">Browse curated services from our verified experts.</p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+          {CATEGORIES.map((cat, i) => (
+            <Motion.div
+              key={i}
+              whileHover={{ y: -5 }}
+              className={`${cat.color} p-8 rounded-3xl flex flex-col items-center justify-center gap-4 cursor-pointer transition-all border border-transparent hover:border-white hover:premium-shadow group`}
+            >
+              <div className="p-4 bg-white rounded-2xl premium-shadow transform group-hover:scale-110 transition-transform">
+                {React.cloneElement(cat.icon, { size: 32 })}
+              </div>
+              <span className="font-bold text-slate-800 tracking-tight">{cat.name}</span>
+            </Motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Trust Section */}
+      <section className="py-24 bg-slate-900 overflow-hidden relative">
+        <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 items-center gap-16">
+          <div>
+            <h2 className="text-4xl md:text-5xl font-bold font-heading text-white mb-6 leading-tight">
+              Quality services <br /> 
+              <span className="text-primary-400">at your doorstep.</span>
+            </h2>
+            <p className="text-slate-400 text-lg mb-8 leading-relaxed">
+              We vet every professional on our platform through a strict KYC and experience check. Booking a pro has never been safer or easier.
+            </p>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3 text-white font-medium">
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                </div>
+                Verified Professional Identity
+              </div>
+              <div className="flex items-center gap-3 text-white font-medium">
+                <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                   <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                </div>
+                Secure Payments & Transparent Pricing
+              </div>
+            </div>
+          </div>
+          <div className="relative">
+            <div className="aspect-square bg-gradient-to-tr from-primary-600 to-indigo-600 rounded-[60px] transform rotate-3 relative z-10 overflow-hidden premium-shadow">
+              <img src="https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=2669&auto=format&fit=crop" className="w-full h-full object-cover transform -rotate-3 scale-110" alt="Pro" />
+            </div>
+            <div className="absolute top-[-20px] left-[-20px] w-full h-full border-2 border-primary-500/30 rounded-[60px]" />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export default Home;

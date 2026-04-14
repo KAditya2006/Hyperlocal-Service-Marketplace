@@ -1,0 +1,291 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getChats, getMessages, uploadImageMessage } from '../services/api';
+import { disconnectSocket, initiateSocket, joinChatRoom, sendMessage, subscribeToMessages, subscribeToNotifications } from '../services/socket';
+import Navbar from '../components/Navbar';
+import { MessageSquare, Send, Image as ImageIcon, Search, Phone, MoreVertical, CheckCheck, User as UserIcon, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { format } from 'date-fns';
+
+const ChatPage = () => {
+  const { user } = useAuth();
+  const [chats, setChats] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [msgLoading, setMsgLoading] = useState(false);
+  const [messagePagination, setMessagePagination] = useState({ page: 1, pages: 1 });
+  const scrollRef = useRef();
+  const activeChatRef = useRef(null);
+  const chatsRef = useRef([]);
+
+  useEffect(() => {
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
+
+  useEffect(() => {
+    chatsRef.current = chats;
+  }, [chats]);
+
+  useEffect(() => {
+    initiateSocket();
+    fetchChats();
+
+    const unsubscribeMessages = subscribeToMessages((err, msg) => {
+      if (activeChatRef.current && msg.chatId === activeChatRef.current._id) {
+        setMessages((prev) => [...prev, msg]);
+      }
+      fetchChats(); // Update last message in sidebar
+    });
+
+    const unsubscribeNotifications = subscribeToNotifications((err, notif) => {
+      if (!activeChatRef.current || notif.chatId !== activeChatRef.current._id) {
+        toast((t) => (
+          <div onClick={() => { setActiveChat(chatsRef.current.find(c => c._id === notif.chatId)); toast.dismiss(t.id); }} className="cursor-pointer">
+            <p className="font-bold flex items-center gap-2"><MessageSquare size={16}/> {notif.senderName}</p>
+            <p className="text-sm opacity-80">{notif.text}</p>
+          </div>
+        ), { duration: 4000 });
+      }
+    });
+
+    return () => {
+      unsubscribeMessages?.();
+      unsubscribeNotifications?.();
+      disconnectSocket();
+    };
+  }, [user.id]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const fetchChats = async () => {
+    try {
+      const { data } = await getChats();
+      setChats(data.data);
+    } catch {
+      toast.error('Failed to load chats');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChatSelect = async (chat) => {
+    setActiveChat(chat);
+    setMsgLoading(true);
+    joinChatRoom(chat._id);
+    try {
+      const { data } = await getMessages(chat._id);
+      setMessages(data.data);
+      setMessagePagination(data.pagination);
+    } catch {
+      toast.error('Failed to load messages');
+    } finally {
+      setMsgLoading(false);
+    }
+  };
+
+  const loadOlderMessages = async () => {
+    if (!activeChat || messagePagination.page >= messagePagination.pages) return;
+
+    try {
+      const nextPage = messagePagination.page + 1;
+      const { data } = await getMessages(activeChat._id, { page: nextPage });
+      setMessages((current) => [...data.data, ...current]);
+      setMessagePagination(data.pagination);
+    } catch {
+      toast.error('Failed to load older messages');
+    }
+  };
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+
+    const messageData = {
+      chatId: activeChat._id,
+      content: text,
+      messageType: 'text'
+    };
+
+    sendMessage(messageData);
+    setText('');
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const toastId = toast.loading('Sending image...');
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('chatId', activeChat._id);
+
+    try {
+      await uploadImageMessage(formData);
+      toast.success('Image sent', { id: toastId });
+    } catch {
+      toast.error('Failed to send image', { id: toastId });
+    }
+  };
+
+  const filteredChats = chats.filter((chat) => {
+    const otherParticipant = chat.participants.find(p => p._id !== user.id);
+    return otherParticipant?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  const fallbackAvatar = 'https://res.cloudinary.com/di9yc9sc8/image/upload/v1712668582/default-avatar_v0jzqy.png';
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center font-bold text-slate-400">Loading your conversations...</div>;
+
+  return (
+    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+      <Navbar />
+
+      <main className="flex-1 flex overflow-hidden p-6 gap-6">
+        {/* Chat List */}
+        <div className="w-full md:w-[380px] bg-white rounded-[40px] premium-shadow border border-slate-100 flex flex-col overflow-hidden">
+          <div className="p-8 border-b border-slate-50">
+            <h1 className="text-2xl font-bold font-heading text-slate-900 mb-6">Messages</h1>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search conversations..." className="w-full bg-slate-50 border border-slate-100 pl-11 pr-4 py-3.5 rounded-2xl outline-none focus:border-primary-500 focus:bg-white transition-all text-sm font-medium" />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {filteredChats.length > 0 ? filteredChats.map((chat) => (
+              <div 
+                key={chat._id} 
+                onClick={() => handleChatSelect(chat)}
+                className={`p-6 flex items-center gap-4 cursor-pointer transition-all border-l-4 ${activeChat?._id === chat._id ? 'bg-primary-50/50 border-primary-600 shadow-sm' : 'border-transparent hover:bg-slate-50'}`}
+              >
+                <div className="relative">
+                  <img 
+                    src={chat.participants.find(p => p._id !== user.id)?.avatar || fallbackAvatar} 
+                    alt="User" 
+                    className="w-14 h-14 rounded-2xl object-cover border-2 border-white premium-shadow"
+                  />
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1">
+                    <h4 className="font-bold text-slate-900 truncate">
+                      {chat.participants.find(p => p._id !== user.id)?.name}
+                    </h4>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">
+                      {chat.updatedAt ? format(new Date(chat.updatedAt), 'h:mm a') : ''}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-slate-500 truncate italic">
+                    {chat.lastMessage?.text || 'Start a conversation'}
+                  </p>
+                </div>
+              </div>
+            )) : (
+              <div className="p-12 text-center text-slate-400 font-bold italic">No messages yet</div>
+            )}
+          </div>
+        </div>
+
+        {/* Chat Window */}
+        <div className="flex-1 bg-white rounded-[40px] premium-shadow border border-slate-100 flex flex-col overflow-hidden relative">
+          {activeChat ? (
+            <>
+              {/* Window Header */}
+              <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center bg-white/80 backdrop-blur-md sticky top-0 z-10">
+                <div className="flex items-center gap-4">
+                  <img 
+                    src={activeChat.participants.find(p => p._id !== user.id)?.avatar} 
+                    className="w-12 h-12 rounded-2xl object-cover" 
+                    alt="Active" 
+                  />
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-lg">{activeChat.participants.find(p => p._id !== user.id)?.name}</h3>
+                    <div className="flex items-center gap-2">
+                       <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                       <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Now</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                   <button className="p-3 text-slate-400 hover:text-primary-600 hover:bg-slate-50 rounded-2xl transition-all"><Phone size={20} /></button>
+                   <button className="p-3 text-slate-400 hover:text-slate-900 hover:bg-slate-50 rounded-2xl transition-all"><MoreVertical size={20} /></button>
+                </div>
+              </div>
+
+              {/* Message Feed */}
+              <div className="flex-1 overflow-y-auto p-10 space-y-8 custom-scrollbar bg-slate-50/20">
+                {msgLoading ? (
+                  <div className="flex items-center justify-center h-full"><Loader2 className="animate-spin text-primary-600" size={32} /></div>
+                ) : (
+                  <>
+                    <div className="text-center mb-12">
+                       <span className="px-4 py-1.5 bg-white border border-slate-100 rounded-full text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] premium-shadow">Today</span>
+                    </div>
+                    {messagePagination.page < messagePagination.pages && (
+                      <div className="text-center">
+                        <button onClick={loadOlderMessages} className="px-4 py-2 bg-white border border-slate-100 rounded-xl text-xs font-bold text-slate-500">
+                          Load older messages
+                        </button>
+                      </div>
+                    )}
+                    {messages.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.sender._id === user.id ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[70%] space-y-2 ${msg.sender._id === user.id ? 'items-end' : 'items-start'}`}>
+                          <div className={`p-4 rounded-[28px] premium-shadow font-medium tracking-tight ${msg.sender._id === user.id ? 'bg-primary-600 text-white rounded-tr-none' : 'bg-white text-slate-800 rounded-tl-none border border-slate-100'}`}>
+                             {msg.messageType === 'image' ? (
+                               <img src={msg.imageUrl} className="max-w-full rounded-2xl cursor-pointer" alt="Sent" onClick={() => window.open(msg.imageUrl, '_blank')} />
+                             ) : msg.content}
+                          </div>
+                          <div className={`flex items-center gap-2 px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest`}>
+                             {format(new Date(msg.createdAt), 'h:mm a')}
+                             {msg.sender._id === user.id && <CheckCheck size={14} className="text-primary-400" />}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={scrollRef} />
+                  </>
+                )}
+              </div>
+
+              {/* Message Input */}
+              <div className="p-8 bg-white border-t border-slate-50">
+                 <form onSubmit={handleSend} className="bg-slate-50 p-2 rounded-[32px] border border-slate-100 flex items-center gap-2 premium-shadow focus-within:border-primary-400 focus-within:bg-white transition-all">
+                    <label className="p-3 text-slate-400 hover:text-primary-600 cursor-pointer transition-colors">
+                       <ImageIcon size={22} />
+                       <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="Write your message..." 
+                      className="flex-1 bg-transparent outline-none px-4 py-2 font-medium text-slate-900"
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                    />
+                    <button type="submit" className="bg-primary-600 text-white p-4 rounded-3xl hover:bg-primary-700 transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary-200">
+                       <Send size={22} />
+                    </button>
+                 </form>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+               <div className="w-24 h-24 bg-primary-50 rounded-[40px] flex items-center justify-center mb-8 text-primary-600 shadow-xl shadow-primary-100/50">
+                  <MessageSquare size={48} />
+               </div>
+               <h3 className="text-3xl font-bold font-heading text-slate-900 mb-2">Select a Conversation</h3>
+               <p className="text-slate-500 font-medium max-w-xs">Connect with experts and residents from your marketplace in real-time.</p>
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default ChatPage;

@@ -1,0 +1,22 @@
+{
+  "name": "startup",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "server": "npm run dev --prefix backend",
+    "client": "npm run dev --prefix frontend",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "lint": "npm run lint --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "check:backend": "node --check backend/app.js && node --check backend/index.js && node --check backend/controllers/authController.js && node --check backend/controllers/bookingController.js && node --check backend/controllers/chatController.js && node --check backend/controllers/marketplaceController.js && node --check backend/controllers/workerController.js && node --check backend/controllers/adminController.js && node --check backend/controllers/notificationController.js && node --check backend/scripts/seed.js",
+    "test": "npm run lint && npm run build && npm run check:backend && npm test --prefix backend"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

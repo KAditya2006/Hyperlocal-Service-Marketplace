@@ -36,14 +36,7 @@ const ProtectedRoute = ({ children, role }) => {
 function AppRoutes() {
   return (
     <Routes>
-      <Route 
-        path="/" 
-        element={
-          <ProtectedRoute>
-            <Home />
-          </ProtectedRoute>
-        } 
-      />
+      <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/verify-otp" element={<VerifyOTP />} />

@@ -2,12 +2,43 @@ import React from 'react';
 import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { CATEGORY_METADATA } from '../constants/professions';
-import * as LucideIcons from 'lucide-react';
-import { Search, MapPin } from 'lucide-react';
+import { 
+  Search, 
+  MapPin, 
+  Droplets, 
+  Zap, 
+  BookOpen, 
+  Hammer, 
+  Palette, 
+  Wind, 
+  Settings, 
+  Sparkles, 
+  Laptop, 
+  Wifi, 
+  Utensils, 
+  Car, 
+  Briefcase 
+} from 'lucide-react';
 import { motion as Motion } from 'framer-motion';
 
+const ICON_MAP = {
+  Droplets,
+  Zap,
+  BookOpen,
+  Hammer,
+  Palette,
+  Wind,
+  Settings,
+  Sparkles,
+  Laptop,
+  Wifi,
+  Utensils,
+  Car,
+  Briefcase
+};
+
 const CATEGORIES = Object.entries(CATEGORY_METADATA).slice(0, 10).map(([name, meta]) => {
-  const Icon = LucideIcons[meta.iconName] || LucideIcons.Briefcase;
+  const Icon = ICON_MAP[meta.iconName] || ICON_MAP.Briefcase;
   return {
     name: name.charAt(0).toUpperCase() + name.slice(1),
     icon: <Icon className={meta.iconColor} />,

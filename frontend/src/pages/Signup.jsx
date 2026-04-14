@@ -5,6 +5,7 @@ import { User, Mail, Lock, Briefcase, ArrowRight, Home, Clock } from 'lucide-rea
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import toast from 'react-hot-toast';
 import BrandLogo from '../components/BrandLogo';
+import { PROFESSIONS } from '../constants/professions';
 
 const Signup = () => {
   const [formData, setFormData] = useState({ 
@@ -158,17 +159,37 @@ const Signup = () => {
 
               {formData.role === 'worker' && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="relative">
-                    <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input 
-                      type="text" 
-                      placeholder="Your Professions (e.g., Plumber, Electrician)" 
-                      required={formData.role === 'worker'}
-                      value={formData.professions.join(', ')}
-                      onChange={(e) => setFormData({...formData, professions: e.target.value.split(',').map(p => p.trim()).filter(Boolean)})}
-                      className="w-full bg-white border border-slate-200 pl-12 pr-4 py-3.5 rounded-xl outline-none focus:border-primary-500 transition-colors font-medium"
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1 ml-1 font-bold">Separate multiple professions with commas</p>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 ml-1 flex items-center gap-2">
+                      <Briefcase size={16} /> Choose Your Professions
+                    </label>
+                    <div className="flex flex-wrap gap-2 p-3 bg-white border border-slate-200 rounded-xl max-h-48 overflow-y-auto">
+                      {PROFESSIONS.map((prof) => {
+                        const isSelected = formData.professions.includes(prof);
+                        return (
+                          <button
+                            key={prof}
+                            type="button"
+                            onClick={() => {
+                              const newProfs = isSelected
+                                ? formData.professions.filter(p => p !== prof)
+                                : [...formData.professions, prof];
+                              setFormData({ ...formData, professions: newProfs });
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                              isSelected 
+                                ? 'bg-primary-600 text-white border-primary-600 shadow-md scale-105' 
+                                : 'bg-slate-50 text-slate-600 border-slate-100 hover:border-primary-300 hover:bg-white'
+                            }`}
+                          >
+                            {prof.charAt(0).toUpperCase() + prof.slice(1)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {formData.professions.length === 0 && (
+                      <p className="text-[10px] text-rose-500 font-bold ml-1">Please select at least one profession</p>
+                    )}
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4">

@@ -1,16 +1,20 @@
 import React from 'react';
 import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Hammer, Zap, Droplets, Laptop, BookOpen } from 'lucide-react';
+import { CATEGORY_METADATA } from '../constants/professions';
+import * as LucideIcons from 'lucide-react';
+import { Search, MapPin } from 'lucide-react';
 import { motion as Motion } from 'framer-motion';
 
-const CATEGORIES = [
-  { name: 'Plumbing', icon: <Droplets className="text-blue-500" />, color: 'bg-blue-50' },
-  { name: 'Electrical', icon: <Zap className="text-amber-500" />, color: 'bg-amber-50' },
-  { name: 'Carpentry', icon: <Hammer className="text-orange-500" />, color: 'bg-orange-50' },
-  { name: 'Repairing', icon: <Laptop className="text-indigo-500" />, color: 'bg-indigo-50' },
-  { name: 'Tutors', icon: <BookOpen className="text-emerald-500" />, color: 'bg-emerald-50' }
-];
+const CATEGORIES = Object.entries(CATEGORY_METADATA).slice(0, 10).map(([name, meta]) => {
+  const Icon = LucideIcons[meta.iconName] || LucideIcons.Briefcase;
+  return {
+    name: name.charAt(0).toUpperCase() + name.slice(1),
+    icon: <Icon className={meta.iconColor} />,
+    color: meta.color,
+    slug: name
+  };
+});
 
 const Home = () => {
   const navigate = useNavigate();

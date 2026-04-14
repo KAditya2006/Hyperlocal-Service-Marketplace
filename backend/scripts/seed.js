@@ -24,11 +24,12 @@ const seed = async () => {
   const customer = await ensureUser('customer@hyperlocal.test', { name: 'Customer User', role: 'user', isVerified: true, location: { type: 'Point', coordinates: [77.1025, 28.7041], address: 'Rohini, Delhi', homeNumber: 'H-12, Sector 9' } });
   
   const additionalLocations = [
-    { email: 'plumber1@test.com', name: 'Amit Plumber', profession: 'Plumbing', coords: [77.391, 28.5355], address: 'Sector 62, Noida' },
-    { email: 'electric1@test.com', name: 'Suresh Electric', profession: 'Electrical', coords: [77.0266, 28.4595], address: 'Cyber Hub, Gurgaon' },
-    { email: 'carpenter1@test.com', name: 'Vikram Woodwork', profession: 'Carpentry', coords: [77.2167, 28.6667], address: 'Civil Lines, Delhi' },
-    { email: 'tutor1@test.com', name: 'Priya Maths', profession: 'Tutors', coords: [77.3159, 28.5823], address: 'Sector 15, Noida' },
-    { email: 'multi1@test.com', name: 'All-Rounder Raj', professions: ['Plumbing', 'Electrical'], coords: [77.209, 28.6139], address: 'Connaught Place, Delhi' }
+    { email: 'plumber1@test.com', name: 'Amit Plumber', profession: 'plumber', coords: [77.391, 28.5355], address: 'Sector 62, Noida' },
+    { email: 'electric1@test.com', name: 'Suresh Electric', profession: 'electrician', coords: [77.0266, 28.4595], address: 'Cyber Hub, Gurgaon' },
+    { email: 'carpenter1@test.com', name: 'Vikram Woodwork', profession: 'carpenters', coords: [77.2167, 28.6667], address: 'Civil Lines, Delhi' },
+    { email: 'tutor1@test.com', name: 'Priya Maths', profession: 'home tutors', coords: [77.3159, 28.5823], address: 'Sector 15, Noida' },
+    { email: 'ac1@test.com', name: 'Karan AC Service', profession: 'ac repair/service', coords: [77.209, 28.6139], address: 'Connaught Place, Delhi' },
+    { email: 'multi1@test.com', name: 'All-Rounder Raj', professions: ['plumber', 'electrician'], coords: [77.209, 28.6139], address: 'Connaught Place, Delhi' }
   ];
 
   const { getWorkerModel } = require('../models/WorkerModels');

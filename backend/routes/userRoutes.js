@@ -6,8 +6,6 @@ const { uploadAvatar: uploadAvatarMiddleware, upload } = require('../config/clou
 
 router.put('/profile', protect, updateProfile);
 router.put('/profile/avatar', protect, uploadAvatarMiddleware.single('avatar'), updateAvatar);
-router.post('/upload-kyc', protect, upload.fields([
-  { name: 'idProof', maxCount: 1 }
-]), uploadKYC);
+router.post('/upload-kyc', protect, upload.single('idProof'), uploadKYC);
 
 module.exports = router;

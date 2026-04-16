@@ -19,7 +19,7 @@ const statusStyles = {
 };
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +36,9 @@ const Profile = () => {
 
   const handleKycSubmit = async (e) => {
     e.preventDefault();
+    console.log('--- User KYC Submit Clicked ---');
+    console.log('File:', kycFiles.idProof);
+
     if (!kycFiles.idProof) {
       return toast.error('Please select an ID proof');
     }
@@ -45,12 +48,25 @@ const Profile = () => {
 
     setUploading(true);
     try {
+      console.log('Sending User KYC request...');
       const { data } = await uploadUserKYC(formData);
+      console.log('User KYC Success Response:', data);
+
       toast.success(data.message || 'KYC submitted successfully!');
-      setTimeout(() => {
-        window.location.reload(); 
-      }, 2000);
+      
+      // Update context immediately so UI transitions to "Pending"
+      if (data && data.data) {
+        setUser(prev => ({ 
+          ...prev, 
+          kyc: data.data.kyc || { status: 'pending' }
+        }));
+      } else {
+        // Fallback if data structure is unexpected but request succeeded
+        setUser(prev => ({ ...prev, kyc: { ...prev?.kyc, status: 'pending' } }));
+      }
+
     } catch (error) {
+      console.error('User KYC Upload Error:', error);
       toast.error(error.response?.data?.message || 'Verification upload failed');
     } finally {
       setUploading(false);
@@ -154,18 +170,27 @@ const Profile = () => {
            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
               <div className="flex flex-col md:flex-row items-start justify-between gap-6 mb-8">
                 <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-2xl ${user?.kyc?.status === 'verified' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                    {user?.kyc?.status === 'verified' ? <CheckCircle2 size={24} /> : <Clock size={24} />}
+                  <div className={`p-3 rounded-2xl ${
+                    user?.kyc?.status === 'verified' ? 'bg-emerald-100 text-emerald-600' : 
+                    user?.kyc?.status === 'rejected' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
+                  }`}>
+                    {user?.kyc?.status === 'verified' ? <CheckCircle2 size={24} /> : 
+                     user?.kyc?.status === 'rejected' ? <XCircle size={24} /> : <Clock size={24} />}
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-900">
                       {user?.kyc?.status === 'verified' ? 'Fully Verified' : 
-                       user?.kyc?.status === 'pending' ? 'Verification Pending' : 'Verification Required'}
+                       user?.kyc?.status === 'pending' ? 'Verification Pending' : 
+                       user?.kyc?.status === 'rejected' ? 'Verification Rejected' : 'Verification Required'}
                     </h4>
                     <p className="text-sm text-slate-500 font-medium">
                        {user?.kyc?.status === 'verified' 
                           ? 'Your account is verified. You have full access to all features.' 
-                          : user?.kyc?.status === 'pending' ? 'Our team is reviewing your documents.' : 'Please upload your ID proof to start making bookings.'}
+                          : user?.kyc?.status === 'pending' 
+                             ? 'Our team is reviewing your documents. You will get a notification once verified.' 
+                             : user?.kyc?.status === 'rejected'
+                                ? `Reason: ${user?.kyc?.rejectionReason || 'Please provide clearer documents.'}`
+                                : 'Please upload your ID proof to start making bookings.'}
                     </p>
                   </div>
                 </div>

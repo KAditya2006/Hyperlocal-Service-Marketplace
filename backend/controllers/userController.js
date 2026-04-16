@@ -80,9 +80,10 @@ exports.uploadKYC = async (req, res, next) => {
   try {
     console.log('--- User KYC Upload Attempt ---');
     console.log('User ID:', req.user?._id);
+    console.log('File received:', req.file ? req.file.fieldname : 'None');
     console.log('Files received:', req.files ? Object.keys(req.files) : 'None');
 
-    if (!req.files || !req.files.idProof) {
+    if (!req.file) {
       return res.status(400).json({ success: false, message: 'Please upload your ID Proof' });
     }
 
@@ -93,7 +94,7 @@ exports.uploadKYC = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    const idProof = req.files.idProof[0];
+    const idProof = req.file;
 
     user.kyc = {
       idProof: { url: idProof.path, publicId: idProof.filename },
@@ -105,9 +106,9 @@ exports.uploadKYC = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'KYC submitted successfully for review',
-      user: {
+      data: {
         id: user._id,
-        kycStatus: user.kyc.status
+        kyc: user.kyc
       }
     });
   } catch (error) {

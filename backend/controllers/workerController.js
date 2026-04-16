@@ -52,27 +52,30 @@ exports.updateProfile = async (req, res) => {
 
 exports.uploadKYC = async (req, res) => {
   try {
-    if (!req.files || !req.files.idProof || !req.files.selfie) {
-      return res.status(400).json({ success: false, message: 'Please upload both ID Proof and Selfie' });
+    console.log('--- Worker KYC Upload Attempt ---');
+    console.log('User:', req.user.id);
+    
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please upload ID Proof' });
     }
 
-    const idProof = req.files.idProof[0];
-    const selfie = req.files.selfie[0];
+    const idProof = req.file;
 
     const profile = await WorkerProfile.findOneAndUpdate(
       { user: req.user.id },
       {
         kyc: {
           idProof: { url: idProof.path, publicId: idProof.filename },
-          selfie: { url: selfie.path, publicId: selfie.filename },
           status: 'pending'
         }
       },
       { new: true }
     );
 
+    console.log('Worker KYC Updated Successfully');
     res.status(200).json({ success: true, message: 'KYC submitted for approval', data: profile });
   } catch (error) {
+    console.error('Worker KYC Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

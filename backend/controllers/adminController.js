@@ -2,6 +2,7 @@ const User = require('../models/User');
 const WorkerProfile = require('../models/WorkerProfile');
 const Booking = require('../models/Booking');
 const AuditLog = require('../models/AuditLog');
+const Notification = require('../models/Notification');
 
 exports.getDashboardStats = async (req, res) => {
   try {
@@ -69,6 +70,8 @@ exports.approveWorker = async (req, res) => {
     }
 
     let result;
+    let userId;
+
     if (type === 'worker') {
       result = await WorkerProfile.findByIdAndUpdate(
         workerId,
@@ -79,6 +82,7 @@ exports.approveWorker = async (req, res) => {
         },
         { new: true }
       );
+      userId = result?.user;
     } else {
       // Re-use logic for User model
       result = await User.findByIdAndUpdate(
@@ -90,10 +94,25 @@ exports.approveWorker = async (req, res) => {
         },
         { new: true }
       );
+      userId = workerId;
     }
 
     if (!result) {
        return res.status(404).json({ success: false, message: 'Identity record not found' });
+    }
+
+    // Create Notification for the user
+    try {
+      await Notification.create({
+        user: userId,
+        type: 'system',
+        title: status === 'approved' ? 'Identity Verified' : 'Verification Rejected',
+        message: status === 'approved' 
+          ? 'Your account has been successfully verified. You now have full access to platform features.' 
+          : `Your verification request was declined. Reason: ${rejectionReason || 'Documents were unclear'}. Please re-upload your ID proof.`
+      });
+    } catch (notificationError) {
+      console.error('Failed to send verification notification:', notificationError);
     }
 
     await AuditLog.create({

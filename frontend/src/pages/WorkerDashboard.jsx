@@ -9,8 +9,9 @@ import { formatInr } from '../utils/formatters';
 const WorkerDashboard = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [kycFiles, setKycFiles] = useState({ idProof: null, selfie: null });
+  const [kycFiles, setKycFiles] = useState({ idProof: null });
   const [uploading, setUploading] = useState(false);
+  const { setUser } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [jobsPagination, setJobsPagination] = useState({ page: 1, pages: 1 });
   const [profileForm, setProfileForm] = useState({ skills: '', experience: 0, bio: '', amount: '', unit: 'hour', availabilityStatus: 'Available' });
@@ -89,21 +90,37 @@ const WorkerDashboard = () => {
 
   const handleKycSubmit = async (e) => {
     e.preventDefault();
-    if (!kycFiles.idProof || !kycFiles.selfie) {
-      toast.error('Please select both ID Proof and Selfie');
+    console.log('--- Worker KYC Submit Clicked ---');
+    console.log('File:', kycFiles.idProof);
+
+    if (!kycFiles.idProof) {
+      toast.error('Please select an ID Proof');
       return;
     }
 
     const formData = new FormData();
     formData.append('idProof', kycFiles.idProof);
-    formData.append('selfie', kycFiles.selfie);
 
     setUploading(true);
     try {
+      console.log('Sending Worker KYC request...');
       const { data } = await uploadKYC(formData);
+      console.log('Worker KYC Success Response:', data);
+
       toast.success(data.message || 'KYC submitted successfully!');
-      fetchProfile();
-      setActiveSection('overview'); // Redirect to overview to show progress
+      
+      // Update local state and context safely
+      if (data && data.data) {
+        setProfile(data.data);
+        setUser(prev => ({ 
+          ...prev, 
+          kyc: data.data.kyc || { status: 'pending' } 
+        }));
+      } else {
+        fetchProfile(); // Fallback
+      }
+      
+      setActiveSection('overview');
     } catch (error) {
       console.error('KYC Upload Error:', error);
       const message = error.response?.data?.message || 'KYC upload failed. Please check your network and file size.';
@@ -150,12 +167,22 @@ const WorkerDashboard = () => {
         {/* Main Content */}
         <main className="flex-1 space-y-8">
           {/* Status Banner */}
-          {profile?.approvalStatus === 'pending' && profile?.kyc?.status === 'pending' && (
+          {profile?.kyc?.status === 'pending' && (
             <div className="bg-amber-50 border border-amber-200 p-4 sm:p-6 rounded-3xl md:rounded-[32px] flex items-start gap-4">
               <Clock className="text-amber-500 mt-1" size={24} />
               <div>
                 <h4 className="font-bold text-amber-900 text-lg">Verification in Progress</h4>
-                <p className="text-amber-700 font-medium">Our team is reviewing your documents. You'll be notified via email once approved.</p>
+                <p className="text-amber-700 font-medium">Our team is reviewing your documents. You will be notified in your panel once approved.</p>
+              </div>
+            </div>
+          )}
+
+          {profile?.kyc?.status === 'rejected' && (
+            <div className="bg-rose-50 border border-rose-200 p-4 sm:p-6 rounded-3xl md:rounded-[32px] flex items-start gap-4">
+              <XCircle className="text-rose-500 mt-1" size={24} />
+              <div>
+                <h4 className="font-bold text-rose-900 text-lg">Verification Rejected</h4>
+                <p className="text-rose-700 font-medium">Reason: {profile?.kyc?.rejectionReason || 'Documents were unclear'}. Please re-upload valid documents below.</p>
               </div>
             </div>
           )}
@@ -214,21 +241,13 @@ const WorkerDashboard = () => {
             <section className="bg-white p-4 sm:p-8 rounded-3xl md:rounded-[40px] premium-shadow border border-slate-100">
               <h3 className="text-2xl font-bold text-slate-900 mb-8 font-heading">KYC Verification Flow</h3>
               <form onSubmit={handleKycSubmit} className="space-y-8">
-                 <div className="grid md:grid-cols-2 gap-8">
+                 <div className="grid md:grid-cols-1 gap-8">
                     <div className="space-y-4">
                        <p className="font-bold text-slate-700">1. Government ID (Aadhaar/Passport)</p>
-                       <label className="border-2 border-dashed border-slate-200 rounded-3xl p-6 sm:p-12 flex flex-col items-center justify-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 transition-all group">
-                          <Upload className="text-slate-400 group-hover:text-primary-600 transition-colors mb-4" size={32} />
-                          <span className="text-slate-500 font-bold text-sm">{kycFiles.idProof ? kycFiles.idProof.name : 'Click to Upload ID Proof'}</span>
+                       <label className={`border-2 border-dashed rounded-3xl p-6 sm:p-12 flex flex-col items-center justify-center cursor-pointer transition-all group ${kycFiles.idProof ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-primary-400 hover:bg-primary-50/30'}`}>
+                          {kycFiles.idProof ? <CheckCircle2 className="text-emerald-500 mb-4" size={32} /> : <Upload className="text-slate-400 group-hover:text-primary-600 transition-colors mb-4" size={32} />}
+                          <span className={`font-bold text-sm ${kycFiles.idProof ? 'text-emerald-700' : 'text-slate-500'}`}>{kycFiles.idProof ? kycFiles.idProof.name : 'Click to Upload ID Proof'}</span>
                           <input type="file" className="hidden" onChange={(e) => setKycFiles({...kycFiles, idProof: e.target.files[0]})} />
-                       </label>
-                    </div>
-                    <div className="space-y-4">
-                       <p className="font-bold text-slate-700">2. Professional Selfie</p>
-                       <label className="border-2 border-dashed border-slate-200 rounded-3xl p-6 sm:p-12 flex flex-col items-center justify-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/30 transition-all group">
-                          <Upload className="text-slate-400 group-hover:text-primary-600 transition-colors mb-4" size={32} />
-                          <span className="text-slate-500 font-bold text-sm">{kycFiles.selfie ? kycFiles.selfie.name : 'Click to Upload Selfie'}</span>
-                          <input type="file" className="hidden" onChange={(e) => setKycFiles({...kycFiles, selfie: e.target.files[0]})} />
                        </label>
                     </div>
                  </div>

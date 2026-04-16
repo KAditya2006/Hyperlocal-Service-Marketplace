@@ -101,10 +101,13 @@ const WorkerDashboard = () => {
     setUploading(true);
     try {
       const { data } = await uploadKYC(formData);
-      toast.success(data.message);
+      toast.success(data.message || 'KYC submitted successfully!');
       fetchProfile();
-    } catch {
-      toast.error('KYC upload failed');
+      setActiveSection('overview'); // Redirect to overview to show progress
+    } catch (error) {
+      console.error('KYC Upload Error:', error);
+      const message = error.response?.data?.message || 'KYC upload failed. Please check your network and file size.';
+      toast.error(message);
     } finally {
       setUploading(false);
     }

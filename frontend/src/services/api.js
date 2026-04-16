@@ -39,6 +39,9 @@ export const updateProfile = (data) => api.put('/user/profile', data);
 export const updateAvatar = (formData) => api.put('/user/profile/avatar', formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });
+export const uploadUserKYC = (formData) => api.post('/user/upload-kyc', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
 
 // Worker APIs
 export const getWorkerProfile = () => api.get('/worker/profile');

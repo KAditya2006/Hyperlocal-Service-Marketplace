@@ -98,6 +98,11 @@ const AddressAutocomplete = ({ value, onChange, placeholder = "Enter your locati
           value={query}
           onChange={handleInputChange}
           onFocus={() => query.length >= 3 && setShowDropdown(true)}
+          onBlur={() => {
+            if (onChange) onChange({ address: query, coordinates: null });
+            // Small delay to allow clicking suggestions before hiding
+            setTimeout(() => setShowDropdown(false), 200);
+          }}
           placeholder={placeholder}
           className="w-full bg-white border border-slate-200 pl-12 pr-12 py-3.5 rounded-xl outline-none focus:border-primary-500 transition-colors font-medium"
         />

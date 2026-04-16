@@ -20,7 +20,7 @@ const ensureUser = async (email, data) => {
 const seed = async () => {
   await connectDB();
 
-  await ensureUser('admin@hyperlocal.test', { name: 'Admin User', role: 'admin', isVerified: true });
+  await ensureUser('kaditya39546@gmail.com', { name: 'Admin User', role: 'admin', isVerified: true });
   const customer = await ensureUser('customer@hyperlocal.test', { name: 'Customer User', role: 'user', isVerified: true, location: { type: 'Point', coordinates: [77.1025, 28.7041], address: 'Rohini, Delhi', homeNumber: 'H-12, Sector 9' } });
   
   const additionalLocations = [
@@ -69,7 +69,7 @@ const seed = async () => {
   }
 
   console.log('Seed complete');
-  console.log('Admin: admin@hyperlocal.test / password123');
+  console.log('Admin: kaditya39546@gmail.com / password123');
   console.log('Customer: customer@hyperlocal.test / password123');
   console.log('Worker: worker@hyperlocal.test / password123');
   process.exit(0);

@@ -9,7 +9,7 @@ router.use(authorize('worker'));
 
 router.get('/profile', getWorkerProfile);
 router.patch('/profile', verifiedOnly, updateProfile);
-router.post('/upload-kyc', verifiedOnly, upload.fields([
+router.post('/upload-kyc', upload.fields([
   { name: 'idProof', maxCount: 1 },
   { name: 'selfie', maxCount: 1 }
 ]), uploadKYC);

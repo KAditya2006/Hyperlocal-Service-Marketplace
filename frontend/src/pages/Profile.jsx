@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { createReview, getBookings, updateBookingPayment, updateBookingStatus, verifyStartOTP } from '../services/api';
+import { createReview, getBookings, updateBookingPayment, updateBookingStatus, verifyStartOTP, uploadUserKYC } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { CalendarDays, CheckCircle2, Clock, XCircle, Key, ShieldCheck, MapPin, Phone } from 'lucide-react';
 import TrackingMap from '../components/TrackingMap';
@@ -27,9 +27,35 @@ const Profile = () => {
   const [pagination, setPagination] = useState({ page: 1, pages: 1 });
   const [otpInput, setOtpInput] = useState({});
 
+  const [kycFiles, setKycFiles] = useState({ idProof: null });
+  const [uploading, setUploading] = useState(false);
+
   useEffect(() => {
     fetchBookings();
   }, []);
+
+  const handleKycSubmit = async (e) => {
+    e.preventDefault();
+    if (!kycFiles.idProof) {
+      return toast.error('Please select an ID proof');
+    }
+
+    const formData = new FormData();
+    formData.append('idProof', kycFiles.idProof);
+
+    setUploading(true);
+    try {
+      const { data } = await uploadUserKYC(formData);
+      toast.success(data.message || 'KYC submitted successfully!');
+      setTimeout(() => {
+        window.location.reload(); 
+      }, 2000);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Verification upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const fetchBookings = async (page = 1) => {
     try {
@@ -74,6 +100,18 @@ const Profile = () => {
     }
   };
 
+  const submitReview = async (bookingId) => {
+    try {
+      const form = reviewForms[bookingId];
+      if (!form?.rating) return toast.error('Please select a rating');
+      await createReview(bookingId, { rating: form.rating, comment: form.comment });
+      toast.success('Review submitted');
+      fetchBookings(pagination.page);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not submit review');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
@@ -113,22 +151,47 @@ const Profile = () => {
               <h2 className="text-2xl font-bold font-heading text-slate-900">Account Verification</h2>
            </div>
            
-           <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-50 p-6 rounded-3xl border border-slate-100">
-              <div className="flex items-start gap-4">
-                 <div className={`p-3 rounded-2xl ${user?.isAdminApproved ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                    {user?.isAdminApproved ? <CheckCircle2 size={24} /> : <Clock size={24} />}
-                 </div>
-                 <div>
-                    <h4 className="font-bold text-slate-900">{user?.isAdminApproved ? 'Fully Verified' : 'Verification Required'}</h4>
+           <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <div className="flex flex-col md:flex-row items-start justify-between gap-6 mb-8">
+                <div className="flex items-start gap-4">
+                  <div className={`p-3 rounded-2xl ${user?.kyc?.status === 'verified' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                    {user?.kyc?.status === 'verified' ? <CheckCircle2 size={24} /> : <Clock size={24} />}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900">
+                      {user?.kyc?.status === 'verified' ? 'Fully Verified' : 
+                       user?.kyc?.status === 'pending' ? 'Verification Pending' : 'Verification Required'}
+                    </h4>
                     <p className="text-sm text-slate-500 font-medium">
-                       {user?.isAdminApproved 
+                       {user?.kyc?.status === 'verified' 
                           ? 'Your account is verified. You have full access to all features.' 
-                          : 'Please upload your ID proof to start making bookings.'}
+                          : user?.kyc?.status === 'pending' ? 'Our team is reviewing your documents.' : 'Please upload your ID proof to start making bookings.'}
                     </p>
-                 </div>
+                  </div>
+                </div>
               </div>
-              {!user?.isAdminApproved && (
-                 <button className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold hover:bg-slate-800 transition-all">Upload ID</button>
+
+              {(!user?.kyc?.status || user?.kyc?.status === 'none' || user?.kyc?.status === 'rejected') && (
+                <form onSubmit={handleKycSubmit} className="space-y-6">
+                   <div>
+                      <label className={`relative border-2 border-dashed rounded-2xl p-8 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${kycFiles.idProof ? 'bg-emerald-50 border-emerald-500' : 'bg-white border-slate-200 hover:border-primary-400'}`}>
+                        <div className={`p-3 rounded-xl ${kycFiles.idProof ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                           {kycFiles.idProof ? <CheckCircle2 size={24} /> : <CalendarDays size={24} />}
+                        </div>
+                        <span className={`text-sm font-bold ${kycFiles.idProof ? 'text-emerald-700' : 'text-slate-500'}`}>
+                          {kycFiles.idProof ? kycFiles.idProof.name : 'Click to Choose ID Proof (Aadhaar/Passport/Driving License)'}
+                        </span>
+                        <input className="absolute inset-0 opacity-0 cursor-pointer" type="file" onChange={(e) => setKycFiles({...kycFiles, idProof: e.target.files[0]})} />
+                      </label>
+                   </div>
+                   <button 
+                     type="submit" 
+                     disabled={uploading}
+                     className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition-all disabled:opacity-50 premium-shadow"
+                   >
+                     {uploading ? 'Uploading Documents...' : 'Submit Verification Documents'}
+                   </button>
+                </form>
               )}
            </div>
         </section>

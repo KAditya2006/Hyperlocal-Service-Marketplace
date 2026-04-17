@@ -53,11 +53,7 @@ function AppRoutes() {
       />
       <Route 
         path="/workers/:workerId" 
-        element={
-          <ProtectedRoute>
-            <WorkerProfile />
-          </ProtectedRoute>
-        } 
+        element={<WorkerProfile />} 
       />
       
       {/* Protected Routes */}

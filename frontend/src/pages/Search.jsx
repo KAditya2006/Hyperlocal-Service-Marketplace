@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { createBooking, initiateChat, searchWorkers } from '../services/api';
@@ -7,6 +7,7 @@ import { CalendarDays, MapPin, MessageSquare, Search as SearchIcon, Star } from 
 import toast from 'react-hot-toast';
 import { formatInr } from '../utils/formatters';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
+import { getWorkerAvailabilityClass, getWorkerAvailabilityStatus } from '../utils/workerAvailability';
 import { PROFESSIONS } from '../constants/professions';
 
 const SERVICE_LABELS = {
@@ -48,6 +49,28 @@ const getSuggestedServices = (service) => {
   return [...new Set([...(matches.length ? matches : fallback), ...fallback])].slice(0, 8);
 };
 
+const getSearchOrigin = (user) => {
+  const coordinates = user?.location?.coordinates;
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
+
+  const [lng, lat] = coordinates.map(Number);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat === 0 && lng === 0) return null;
+
+  return { lat, lng };
+};
+
+const getWorkerSkills = (worker) => {
+  return worker?.skills?.length ? worker.skills : worker?.professions || [];
+};
+
+const formatDistance = (distanceKm) => {
+  const distance = Number(distanceKm);
+  if (!Number.isFinite(distance)) return null;
+  if (distance < 1) return `${Math.max(Math.round(distance * 1000), 1)} m away`;
+  return `${distance.toFixed(distance < 10 ? 1 : 0)} km away`;
+};
+
 const SearchPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -62,6 +85,7 @@ const SearchPage = () => {
   const searchedService = filters.service.trim();
   const searchedServiceIsListed = isListedService(searchedService);
   const suggestedServices = getSuggestedServices(searchedService);
+  const searchOrigin = useMemo(() => getSearchOrigin(user), [user]);
 
   useEffect(() => {
     const query = new URLSearchParams(location.search).get('q') || '';
@@ -73,7 +97,11 @@ const SearchPage = () => {
     e?.preventDefault();
     setLoading(true);
     try {
-      const { data } = await searchWorkers({ ...filters, page: filters.page || 1 });
+      const { data } = await searchWorkers({
+        ...filters,
+        page: filters.page || 1,
+        ...(searchOrigin ? { lat: searchOrigin.lat, lng: searchOrigin.lng } : {})
+      });
       setWorkers(data.data);
       setPagination(data.pagination);
     } catch {
@@ -81,7 +109,7 @@ const SearchPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, searchOrigin]);
 
   useEffect(() => {
     fetchWorkers();
@@ -106,9 +134,10 @@ const SearchPage = () => {
     if (!selectedWorker) return;
 
     try {
+      const workerSkills = getWorkerSkills(selectedWorker);
       await createBooking({
         workerId: selectedWorker.user._id,
-        service: booking.service || selectedWorker.skills[0] || 'General service',
+        service: booking.service || workerSkills[0] || 'General service',
         scheduledDate: booking.scheduledDate,
         address: booking.address,
         additionalNotes: booking.additionalNotes
@@ -132,10 +161,11 @@ const SearchPage = () => {
       return;
     }
 
+    const workerSkills = getWorkerSkills(worker);
     setSelectedWorker(worker);
     setBooking((current) => ({
       ...current,
-      service: filters.service || worker.skills[0] || '',
+      service: filters.service || workerSkills[0] || '',
       address: current.address || getDefaultAddress()
     }));
   };
@@ -221,7 +251,12 @@ const SearchPage = () => {
                 ))}
               </div>
             </div>
-          ) : workers.map((worker) => (
+          ) : workers.map((worker) => {
+            const workerSkills = getWorkerSkills(worker);
+            const distanceLabel = formatDistance(worker.distanceKm);
+            const availabilityStatus = getWorkerAvailabilityStatus(worker);
+
+            return (
             <article key={worker._id} className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-100 premium-shadow flex flex-col gap-5">
               <div className="flex gap-4">
                 <img 
@@ -235,11 +270,21 @@ const SearchPage = () => {
                   <p className="flex items-center gap-1 text-sm text-amber-500 font-bold">
                     <Star size={16} fill="currentColor" /> {worker.averageRating?.toFixed(1) || '0.0'} ({worker.totalReviews || 0})
                   </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className={`text-xs font-black border rounded-full px-2.5 py-1 ${getWorkerAvailabilityClass(availabilityStatus)}`}>
+                      {availabilityStatus}
+                    </span>
+                    {distanceLabel && (
+                    <span className="text-xs font-black text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-1">
+                      {distanceLabel}
+                    </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <p className="text-slate-600 line-clamp-3">{worker.bio}</p>
               <div className="flex flex-wrap gap-2">
-                {worker.skills?.map((skill) => (
+                {workerSkills.map((skill) => (
                   <span key={skill} className="bg-primary-50 text-primary-700 px-3 py-1 rounded-full text-sm font-bold">{skill}</span>
                 ))}
               </div>
@@ -256,7 +301,8 @@ const SearchPage = () => {
                 </button>
               </div>
             </article>
-          ))}
+            );
+          })}
         </section>
 
         {pagination.pages > 1 && (

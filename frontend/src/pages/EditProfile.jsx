@@ -8,6 +8,13 @@ import AddressAutocomplete from '../components/AddressAutocomplete';
 import toast from 'react-hot-toast';
 import { getDashboardPath } from '../utils/onboarding';
 
+const toStoredCoordinates = (coordinates) => {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return undefined;
+  const [lat, lng] = coordinates.map(Number);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  return [lng, lat];
+};
+
 const EditProfile = () => {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
@@ -168,7 +175,7 @@ const EditProfile = () => {
                     onChange={({ address, coordinates }) => setFormData({
                       ...formData, 
                       address,
-                      coordinates
+                      coordinates: toStoredCoordinates(coordinates)
                     })}
                     placeholder="Enter your street or search your location..."
                   />

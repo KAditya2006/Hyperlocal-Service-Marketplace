@@ -14,6 +14,16 @@ const MAX_PASSWORD_RESET_ATTEMPTS = 5;
 
 const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
 
+const normalizeCoordinates = (coordinates) => {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return undefined;
+
+  const [lng, lat] = coordinates.map(Number);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return undefined;
+
+  return [lng, lat];
+};
+
 const recordFailedAttempt = async (record, maxAttempts) => {
   record.attempts = (record.attempts || 0) + 1;
   record.lastAttemptAt = new Date();
@@ -43,9 +53,10 @@ const generateToken = (id) => {
 
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, role, address, homeNumber, phone, city, area, landmark, pincode, professions, experience, bio } = req.body;
+    const { name, email, password, role, address, homeNumber, phone, city, area, landmark, pincode, professions, experience, bio, location } = req.body;
     const normalizedEmail = normalizeEmail(email);
     const requestedRole = role === 'worker' ? 'worker' : 'user';
+    const coordinates = normalizeCoordinates(location?.coordinates || req.body.coordinates);
 
     if (!name || !normalizedEmail || !password || !phone) {
       return res.status(400).json({ success: false, message: 'Name, email, password, and phone number are required' });
@@ -68,6 +79,7 @@ exports.register = async (req, res, next) => {
         area,
         landmark,
         pincode,
+        ...(coordinates ? { coordinates } : {}),
         homeNumber: requestedRole === 'user' ? homeNumber : undefined
       }
     });

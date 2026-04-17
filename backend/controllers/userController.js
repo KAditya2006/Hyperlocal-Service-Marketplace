@@ -1,10 +1,21 @@
 const User = require('../models/User');
 const { toPublicUser } = require('../utils/userAccess');
 
+const normalizeCoordinates = (coordinates) => {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return undefined;
+
+  const [lng, lat] = coordinates.map(Number);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return undefined;
+
+  return [lng, lat];
+};
+
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, phone, address, homeNumber, city, area, landmark, pincode, avatar } = req.body;
+    const { name, phone, address, homeNumber, city, area, landmark, pincode, avatar, location } = req.body;
     const userId = req.user._id;
+    const coordinates = normalizeCoordinates(location?.coordinates || req.body.coordinates);
 
     const user = await User.findById(userId);
     if (!user) {
@@ -17,7 +28,7 @@ exports.updateProfile = async (req, res, next) => {
     if (avatar) user.avatar = avatar;
 
     // Update location details
-    if (address || homeNumber || city || area || landmark || pincode) {
+    if (address || homeNumber || city || area || landmark || pincode || coordinates) {
       user.location = {
         ...user.location,
         address: address || user.location.address,
@@ -25,6 +36,7 @@ exports.updateProfile = async (req, res, next) => {
         area: area || user.location.area,
         landmark: landmark || user.location.landmark,
         pincode: pincode || user.location.pincode,
+        coordinates: coordinates || user.location.coordinates,
         homeNumber: user.role === 'user' ? (homeNumber || user.location.homeNumber) : undefined
       };
     }

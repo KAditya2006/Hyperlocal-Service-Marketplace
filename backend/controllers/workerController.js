@@ -1,5 +1,38 @@
 const WorkerProfile = require('../models/WorkerProfile');
 const User = require('../models/User');
+const { getWorkerModel } = require('../models/WorkerModels');
+
+const VALID_AVAILABILITY_STATUSES = ['Available', 'Busy', 'Offline', 'Pending Verification'];
+
+const getWorkerCollectionName = (skills = []) => {
+  if (!Array.isArray(skills) || skills.length === 0) return 'general';
+  return skills.length === 1 ? skills[0] : 'multi_professional';
+};
+
+const getAvailabilityStatus = ({ availability, availabilityStatus }) => {
+  if (VALID_AVAILABILITY_STATUSES.includes(availabilityStatus)) return availabilityStatus;
+  if (typeof availability === 'boolean') return availability ? 'Available' : 'Offline';
+  return undefined;
+};
+
+const syncDynamicWorkerProfile = async (profile) => {
+  const DynamicWorkerModel = getWorkerModel(getWorkerCollectionName(profile.skills));
+
+  await DynamicWorkerModel.findOneAndUpdate(
+    { user: profile.user },
+    {
+      user: profile.user,
+      professions: profile.skills,
+      experience: profile.experience,
+      bio: profile.bio,
+      pricing: profile.pricing,
+      availability: profile.availabilityStatus !== 'Offline',
+      availabilityStatus: profile.availabilityStatus,
+      approvalStatus: profile.approvalStatus
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+};
 
 exports.getWorkerProfile = async (req, res, next) => {
   try {
@@ -15,14 +48,15 @@ exports.getWorkerProfile = async (req, res, next) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { skills, experience, bio, pricing, availability, address, coordinates } = req.body;
+    const { skills, experience, bio, pricing, availability, availabilityStatus, address, coordinates } = req.body;
     const profileUpdates = {};
+    const nextAvailabilityStatus = getAvailabilityStatus({ availability, availabilityStatus });
 
     if (skills !== undefined) profileUpdates.skills = skills;
     if (experience !== undefined) profileUpdates.experience = experience;
     if (bio !== undefined) profileUpdates.bio = bio;
     if (pricing !== undefined) profileUpdates.pricing = pricing;
-    if (availability !== undefined) profileUpdates.availability = availability;
+    if (nextAvailabilityStatus !== undefined) profileUpdates.availabilityStatus = nextAvailabilityStatus;
 
     const profile = await WorkerProfile.findOneAndUpdate(
       { user: req.user.id },
@@ -43,6 +77,8 @@ exports.updateProfile = async (req, res, next) => {
         }
       });
     }
+
+    await syncDynamicWorkerProfile(profile);
 
     res.status(200).json({ success: true, data: profile });
   } catch (error) {

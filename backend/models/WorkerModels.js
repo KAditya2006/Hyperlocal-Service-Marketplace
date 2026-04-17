@@ -32,6 +32,11 @@ const workerBaseSchema = {
     type: Boolean,
     default: true
   },
+  availabilityStatus: {
+    type: String,
+    enum: ['Available', 'Busy', 'Offline', 'Pending Verification'],
+    default: 'Available'
+  },
   averageRating: {
     type: Number,
     default: 0

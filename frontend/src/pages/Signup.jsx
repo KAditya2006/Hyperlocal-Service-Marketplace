@@ -7,6 +7,13 @@ import toast from 'react-hot-toast';
 import BrandLogo from '../components/BrandLogo';
 import { PROFESSIONS } from '../constants/professions';
 
+const toStoredCoordinates = (coordinates) => {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return undefined;
+  const [lat, lng] = coordinates.map(Number);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
+  return [lng, lat];
+};
+
 const Signup = () => {
   const [formData, setFormData] = useState({ 
     name: '', 
@@ -150,7 +157,7 @@ const Signup = () => {
                     onChange={({ address, coordinates }) => setFormData({
                       ...formData, 
                       address,
-                      location: { ...formData.location, coordinates: coordinates || [0,0] }
+                      location: { ...formData.location, coordinates: toStoredCoordinates(coordinates) }
                     })}
                     placeholder="Search your location or enter manually..."
                   />

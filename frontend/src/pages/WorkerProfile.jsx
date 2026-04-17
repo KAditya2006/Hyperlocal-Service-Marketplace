@@ -7,6 +7,7 @@ import { CalendarDays, MapPin, MessageSquare, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatInr } from '../utils/formatters';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
+import { getWorkerAvailabilityClass, getWorkerAvailabilityStatus } from '../utils/workerAvailability';
 
 const WorkerProfile = () => {
   const { workerId } = useParams();
@@ -65,6 +66,8 @@ const WorkerProfile = () => {
     return <div className="min-h-screen flex items-center justify-center text-slate-400 font-bold">Loading worker profile...</div>;
   }
 
+  const availabilityStatus = getWorkerAvailabilityStatus(worker);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
@@ -76,6 +79,9 @@ const WorkerProfile = () => {
               <div className="space-y-3 min-w-0">
                 <h1 className="text-3xl sm:text-4xl font-bold font-heading text-slate-900 break-words">{worker.user?.name}</h1>
                 <p className="flex items-center gap-2 text-amber-500 font-bold"><Star fill="currentColor" size={18} /> {worker.averageRating?.toFixed(1) || '0.0'} ({worker.totalReviews || 0} reviews)</p>
+                <span className={`inline-flex text-xs font-black border rounded-full px-3 py-1.5 ${getWorkerAvailabilityClass(availabilityStatus)}`}>
+                  {availabilityStatus}
+                </span>
                 <p className="flex items-start gap-2 text-slate-500"><MapPin size={18} className="mt-0.5 shrink-0" /> <span className="break-words">{worker.user?.location?.address || 'Nearby'}</span></p>
                 <p className="text-xl font-bold text-slate-900">{formatInr(worker.pricing?.amount)}/{worker.pricing?.unit || 'hour'}</p>
               </div>

@@ -63,6 +63,7 @@ const seed = async () => {
         bio: `Professional ${professions.join(' & ')} with years of local experience on InstantSeva.`,
         pricing: { amount: 500, unit: 'hour' },
         availability: true,
+        availabilityStatus: 'Available',
         approvalStatus: 'approved'
       },
       { upsert: true, new: true }
@@ -76,6 +77,7 @@ const seed = async () => {
         skills: professions,
         experience: 4,
         bio: `Verified InstantSeva ${professions[0]}`,
+        availabilityStatus: 'Available',
         approvalStatus: 'approved',
         kyc: { status: 'verified' }
       },

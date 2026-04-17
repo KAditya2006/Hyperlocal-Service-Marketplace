@@ -42,53 +42,8 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 /**
- * 2. DYNAMIC SEO ROUTES (HIGHEST PRIORITY)
- * These must be defined before static files and SPA routing.
+ * 2. DYNAMIC SEO ROUTES (DEPRECATED - Moved to static public folder)
  */
-
-app.get('/robots.txt', (req, res) => {
-  const siteUrl = process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`;
-  res.set('Content-Type', 'text/plain');
-  res.send(`User-agent: *\nAllow: /\n\nSitemap: ${siteUrl}/sitemap.xml`);
-});
-
-app.get('/sitemap.xml', (req, res) => {
-  const siteUrl = process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get('host')}`;
-  const lastMod = new Date().toISOString().split('T')[0];
-  
-  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${siteUrl}/</loc>
-    <lastmod>${lastMod}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${siteUrl}/search</loc>
-    <lastmod>${lastMod}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>${siteUrl}/login</loc>
-    <lastmod>${lastMod}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>${siteUrl}/signup</loc>
-    <lastmod>${lastMod}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-  </url>
-</urlset>`;
-
-  res.set('Content-Type', 'application/xml; charset=utf-8');
-  res.set('X-Content-Type-Options', 'nosniff');
-  res.set('Cache-Control', 'public, max-age=0, must-revalidate'); 
-  res.status(200).send(sitemap.trim());
-});
 
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection.readyState;
@@ -146,8 +101,8 @@ if (hasFrontendBuild) {
   // Serve static assets from the frontend build
   app.use(express.static(frontendDistPath));
 
-  // Catch-all route to serve index.html for React SPA (Express 5 compatible regex)
-  app.get(/^(?!\/api|\/sitemap\.xml).+/, (req, res) => {
+  // Catch-all route to serve index.html for React SPA
+  app.get(/^(?!\/api|\/sitemap\.xml|\/robots\.txt).+/, (req, res) => {
     res.sendFile(path.join(frontendDistPath, 'index.html'));
   });
 } else {

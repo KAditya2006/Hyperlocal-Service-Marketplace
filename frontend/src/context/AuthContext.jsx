@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect } from 'react';
 import { getCurrentUser, setAuthToken } from '../services/api';
 
 const AuthContext = createContext();
@@ -14,9 +14,23 @@ const getStoredUser = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(getStoredUser);
+  const [user, setUserState] = useState(getStoredUser);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
+
+  const setUser = useCallback((nextUser) => {
+    setUserState((previousUser) => {
+      const resolvedUser = typeof nextUser === 'function' ? nextUser(previousUser) : nextUser;
+
+      if (resolvedUser) {
+        localStorage.setItem('user', JSON.stringify(resolvedUser));
+      } else {
+        localStorage.removeItem('user');
+      }
+
+      return resolvedUser;
+    });
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -34,13 +48,11 @@ export const AuthProvider = ({ children }) => {
         const { data } = await getCurrentUser();
         if (!isMounted) return;
         setUser(data.user);
-        localStorage.setItem('user', JSON.stringify(data.user));
       } catch {
         if (!isMounted) return;
         setUser(null);
         setToken(null);
         localStorage.removeItem('token');
-        localStorage.removeItem('user');
         setAuthToken(null);
       } finally {
         if (isMounted) setLoading(false);
@@ -52,13 +64,12 @@ export const AuthProvider = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, [token]);
+  }, [setUser, token]);
 
   const login = (userData, userToken) => {
     setUser(userData);
     setToken(userToken);
     localStorage.setItem('token', userToken);
-    localStorage.setItem('user', JSON.stringify(userData));
     setAuthToken(userToken);
   };
 
@@ -66,7 +77,6 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
     setAuthToken(null);
   };
 

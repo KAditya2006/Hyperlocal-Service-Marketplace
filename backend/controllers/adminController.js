@@ -4,7 +4,7 @@ const Booking = require('../models/Booking');
 const AuditLog = require('../models/AuditLog');
 const Notification = require('../models/Notification');
 
-exports.getDashboardStats = async (req, res) => {
+exports.getDashboardStats = async (req, res, next) => {
   try {
     const totalUsers = await User.countDocuments({ role: 'user' });
     const totalWorkers = await User.countDocuments({ role: 'worker' });
@@ -22,11 +22,11 @@ exports.getDashboardStats = async (req, res) => {
       data: { totalUsers, totalWorkers, pendingApprovals, totalBookings, paidBookings }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.getPendingWorkers = async (req, res) => {
+exports.getPendingWorkers = async (req, res, next) => {
   try {
     // 1. Get Pending Workers
     const workers = await WorkerProfile.find({ approvalStatus: 'pending' })
@@ -57,11 +57,11 @@ exports.getPendingWorkers = async (req, res) => {
 
     res.status(200).json({ success: true, data: combined });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.approveWorker = async (req, res) => {
+exports.approveWorker = async (req, res, next) => {
   try {
     const { workerId, status, rejectionReason, type } = req.body;
 
@@ -83,6 +83,10 @@ exports.approveWorker = async (req, res) => {
         { new: true }
       );
       userId = result?.user;
+
+      if (userId) {
+        await User.findByIdAndUpdate(userId, { isAdminApproved: status === 'approved' });
+      }
     } else {
       // Re-use logic for User model
       result = await User.findByIdAndUpdate(
@@ -125,11 +129,11 @@ exports.approveWorker = async (req, res) => {
 
     res.status(200).json({ success: true, message: `Identity ${status} successfully`, data: result });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.getAuditLogs = async (req, res) => {
+exports.getAuditLogs = async (req, res, next) => {
   try {
     const logs = await AuditLog.find()
       .populate('actor', 'name email role')
@@ -138,6 +142,6 @@ exports.getAuditLogs = async (req, res) => {
 
     res.status(200).json({ success: true, data: logs });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };

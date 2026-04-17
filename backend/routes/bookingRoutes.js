@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { createBooking, createReview, getBookings, updateBookingStatus, updatePaymentStatus } = require('../controllers/bookingController');
-const { protect, verifiedOnly } = require('../middleware/authMiddleware');
+const { dashboardApprovedOnly, protect, verifiedOnly } = require('../middleware/authMiddleware');
 
 router.use(protect);
 router.use(verifiedOnly);
+router.use(dashboardApprovedOnly);
 
 router.route('/')
   .get(getBookings)

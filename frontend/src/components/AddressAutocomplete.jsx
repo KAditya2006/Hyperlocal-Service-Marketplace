@@ -42,7 +42,7 @@ const AddressAutocomplete = ({ value, onChange, placeholder = "Enter your locati
         },
         headers: {
           'Accept-Language': 'en-US,en;q=0.5',
-          'User-Agent': 'Hyperlocal-Marketplace-App' // Required by Nominatim Policy
+          'User-Agent': 'InstantSeva-App' // Required by Nominatim Policy
         }
       });
       setSuggestions(response.data);

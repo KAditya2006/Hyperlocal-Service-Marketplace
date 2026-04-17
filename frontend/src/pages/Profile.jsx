@@ -1,43 +1,59 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { createReview, getBookings, updateBookingPayment, updateBookingStatus, verifyStartOTP, uploadUserKYC } from '../services/api';
+import { getCurrentUser, uploadKYC as uploadWorkerKYC, uploadUserKYC } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { CalendarDays, CheckCircle2, Clock, XCircle, Key, ShieldCheck, MapPin, Phone } from 'lucide-react';
-import TrackingMap from '../components/TrackingMap';
+import { AlertCircle, CalendarDays, CheckCircle2, Clock, XCircle, ShieldCheck, MapPin, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
-import { formatInr } from '../utils/formatters';
-
-const statusStyles = {
-  pending: 'bg-amber-50 text-amber-700',
-  accepted: 'bg-blue-50 text-blue-700',
-  in_progress: 'bg-indigo-50 text-indigo-700 border border-indigo-100',
-  rejected: 'bg-rose-50 text-rose-700',
-  completed: 'bg-emerald-50 text-emerald-700',
-  cancelled: 'bg-slate-100 text-slate-600'
-};
+import { fallbackAvatar, withImageFallback } from '../utils/images';
+import { getDashboardPath, getOnboardingMessage, getVerificationSource } from '../utils/onboarding';
 
 const Profile = () => {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [reviewForms, setReviewForms] = useState({});
-  const [pagination, setPagination] = useState({ page: 1, pages: 1 });
-  const [otpInput, setOtpInput] = useState({});
-
+  const location = useLocation();
   const [kycFiles, setKycFiles] = useState({ idProof: null });
   const [uploading, setUploading] = useState(false);
+  const verification = getVerificationSource(user);
+  const verificationStatus = user?.verificationStatus || verification?.status || 'none';
+  const onboardingMessage = location.state?.notice || getOnboardingMessage(user);
+  const isOnboardingVisit = Boolean(location.state?.onboarding || location.state?.notice);
+
+  const refreshUserStatus = useCallback(async ({ silent = false } = {}) => {
+    try {
+      const { data } = await getCurrentUser();
+      setUser(data.user);
+
+      if (data.user?.canAccessDashboard) {
+        if (!silent) toast.success('Verification approved. Opening your dashboard.');
+        navigate(getDashboardPath(data.user), { replace: true });
+        return;
+      }
+
+      if (!silent) toast.success('Profile status refreshed');
+    } catch {
+      if (!silent) toast.error('Could not refresh profile status');
+    }
+  }, [navigate, setUser]);
 
   useEffect(() => {
-    fetchBookings();
-  }, []);
+    if (user?.canAccessDashboard && isOnboardingVisit) {
+      navigate(getDashboardPath(user), { replace: true });
+    }
+  }, [isOnboardingVisit, navigate, user]);
+
+  useEffect(() => {
+    if (user?.canAccessDashboard || user?.role === 'admin') return undefined;
+
+    const interval = setInterval(() => {
+      refreshUserStatus({ silent: true });
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [refreshUserStatus, user?.canAccessDashboard, user?.role]);
 
   const handleKycSubmit = async (e) => {
     e.preventDefault();
-    console.log('--- User KYC Submit Clicked ---');
-    console.log('File:', kycFiles.idProof);
 
     if (!kycFiles.idProof) {
       return toast.error('Please select an ID proof');
@@ -48,22 +64,13 @@ const Profile = () => {
 
     setUploading(true);
     try {
-      console.log('Sending User KYC request...');
-      const { data } = await uploadUserKYC(formData);
-      console.log('User KYC Success Response:', data);
+      const uploadIdentity = user?.role === 'worker' ? uploadWorkerKYC : uploadUserKYC;
+      const { data } = await uploadIdentity(formData);
 
       toast.success(data.message || 'KYC submitted successfully!');
-      
-      // Update context immediately so UI transitions to "Pending"
-      if (data && data.data) {
-        setUser(prev => ({ 
-          ...prev, 
-          kyc: data.data.kyc || { status: 'pending' }
-        }));
-      } else {
-        // Fallback if data structure is unexpected but request succeeded
-        setUser(prev => ({ ...prev, kyc: { ...prev?.kyc, status: 'pending' } }));
-      }
+
+      const refreshed = await getCurrentUser();
+      setUser(refreshed.data.user);
 
     } catch (error) {
       console.error('User KYC Upload Error:', error);
@@ -73,68 +80,13 @@ const Profile = () => {
     }
   };
 
-  const fetchBookings = async (page = 1) => {
-    try {
-      const { data } = await getBookings({ page });
-      setBookings(data.data);
-      setPagination(data.pagination);
-    } catch {
-      toast.error('Could not load bookings');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const changeStatus = async (bookingId, status) => {
-    try {
-      await updateBookingStatus(bookingId, status);
-      toast.success('Booking updated');
-      fetchBookings(pagination.page);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not update booking');
-    }
-  };
-
-  const changePayment = async (bookingId, paymentStatus) => {
-    try {
-      await updateBookingPayment(bookingId, { paymentStatus, paymentMethod: 'manual' });
-      toast.success('Payment updated');
-      fetchBookings(pagination.page);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not update payment');
-    }
-  };
-
-  const handleStartVerify = async (bookingId) => {
-    try {
-      if (!otpInput[bookingId]) return toast.error('Please enter OTP');
-      await verifyStartOTP(bookingId, otpInput[bookingId]);
-      toast.success('Job started!');
-      fetchBookings(pagination.page);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Invalid OTP');
-    }
-  };
-
-  const submitReview = async (bookingId) => {
-    try {
-      const form = reviewForms[bookingId];
-      if (!form?.rating) return toast.error('Please select a rating');
-      await createReview(bookingId, { rating: form.rating, comment: form.comment });
-      toast.success('Review submitted');
-      fetchBookings(pagination.page);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Could not submit review');
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-6 sm:space-y-8">
         <section className="bg-white rounded-3xl border border-slate-100 premium-shadow p-4 sm:p-8 flex flex-col md:flex-row gap-5 sm:gap-6 md:items-center justify-between">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 min-w-0">
-            <img src={user?.avatar} alt={user?.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl object-cover" />
+            <img src={user?.avatar || fallbackAvatar} onError={withImageFallback()} alt={user?.name} className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl object-cover" />
             <div className="min-w-0">
               <h1 className="text-2xl sm:text-3xl font-bold font-heading text-slate-900 break-words">{user?.name}</h1>
               <p className="text-slate-500">{user?.email}</p>
@@ -161,6 +113,44 @@ const Profile = () => {
           </button>
         </section>
 
+        {user?.role !== 'admin' && (
+          <section className={`rounded-3xl border p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 ${
+            user?.canAccessDashboard
+              ? 'bg-emerald-50 border-emerald-200'
+              : 'bg-amber-50 border-amber-200'
+          }`}>
+            <div className="flex items-start gap-4">
+              <div className={`p-3 rounded-2xl ${user?.canAccessDashboard ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                {user?.canAccessDashboard ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+              </div>
+              <div>
+                <h2 className={`text-lg font-bold ${user?.canAccessDashboard ? 'text-emerald-950' : 'text-amber-950'}`}>
+                  {user?.canAccessDashboard ? 'Dashboard Unlocked' : 'Dashboard Locked Until Verification'}
+                </h2>
+                <p className={`font-medium ${user?.canAccessDashboard ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {onboardingMessage}
+                </p>
+              </div>
+            </div>
+            {user?.canAccessDashboard && user?.role !== 'admin' && (
+              <button
+                onClick={() => navigate(getDashboardPath(user))}
+                className="px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors"
+              >
+                Open Dashboard
+              </button>
+            )}
+            {!user?.canAccessDashboard && (
+              <button
+                onClick={refreshUserStatus}
+                className="px-6 py-3 rounded-xl bg-white border border-amber-200 text-amber-800 font-bold hover:bg-amber-100 transition-colors"
+              >
+                Refresh Status
+              </button>
+            )}
+          </section>
+        )}
+
         <section className="bg-white rounded-3xl border border-slate-100 premium-shadow p-6 sm:p-8">
            <div className="flex items-center gap-3 mb-6">
               <ShieldCheck className="text-primary-600" />
@@ -171,32 +161,35 @@ const Profile = () => {
               <div className="flex flex-col md:flex-row items-start justify-between gap-6 mb-8">
                 <div className="flex items-start gap-4">
                   <div className={`p-3 rounded-2xl ${
-                    user?.kyc?.status === 'verified' ? 'bg-emerald-100 text-emerald-600' : 
-                    user?.kyc?.status === 'rejected' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
+                    verificationStatus === 'verified' ? 'bg-emerald-100 text-emerald-600' : 
+                    verificationStatus === 'rejected' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
                   }`}>
-                    {user?.kyc?.status === 'verified' ? <CheckCircle2 size={24} /> : 
-                     user?.kyc?.status === 'rejected' ? <XCircle size={24} /> : <Clock size={24} />}
+                    {verificationStatus === 'verified' ? <CheckCircle2 size={24} /> : 
+                     verificationStatus === 'rejected' ? <XCircle size={24} /> : <Clock size={24} />}
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-900">
-                      {user?.kyc?.status === 'verified' ? 'Fully Verified' : 
-                       user?.kyc?.status === 'pending' ? 'Verification Pending' : 
-                       user?.kyc?.status === 'rejected' ? 'Verification Rejected' : 'Verification Required'}
+                      {user?.canAccessDashboard ? 'Dashboard Access Approved' :
+                       verificationStatus === 'verified' ? 'Admin Approval Pending' : 
+                       verificationStatus === 'pending' ? 'Verification Pending' : 
+                       verificationStatus === 'rejected' ? 'Verification Rejected' : 'Verification Required'}
                     </h4>
                     <p className="text-sm text-slate-500 font-medium">
-                       {user?.kyc?.status === 'verified' 
-                          ? 'Your account is verified. You have full access to all features.' 
-                          : user?.kyc?.status === 'pending' 
+                       {user?.canAccessDashboard
+                          ? 'Your profile is verified. You can open your dashboard now.'
+                          : verificationStatus === 'verified' 
+                          ? 'Your document is verified. Admin approval is still required before dashboard access.' 
+                          : verificationStatus === 'pending' 
                              ? 'Our team is reviewing your documents. You will get a notification once verified.' 
-                             : user?.kyc?.status === 'rejected'
-                                ? `Reason: ${user?.kyc?.rejectionReason || 'Please provide clearer documents.'}`
-                                : 'Please upload your ID proof to start making bookings.'}
+                             : verificationStatus === 'rejected'
+                                ? `Reason: ${verification?.rejectionReason || 'Please provide clearer documents.'}`
+                                : 'Please upload your ID proof to unlock your dashboard.'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {(!user?.kyc?.status || user?.kyc?.status === 'none' || user?.kyc?.status === 'rejected') && (
+              {(!verificationStatus || verificationStatus === 'none' || verificationStatus === 'rejected') && (
                 <form onSubmit={handleKycSubmit} className="space-y-6">
                    <div>
                       <label className={`relative border-2 border-dashed rounded-2xl p-8 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${kycFiles.idProof ? 'bg-emerald-50 border-emerald-500' : 'bg-white border-slate-200 hover:border-primary-400'}`}>
@@ -221,116 +214,17 @@ const Profile = () => {
            </div>
         </section>
 
-        <section className="space-y-4">
-          <div className="flex items-center gap-3">
-            <CalendarDays className="text-primary-600" />
-            <h2 className="text-2xl font-bold font-heading text-slate-900">Bookings</h2>
-          </div>
-
-          {loading ? (
-            <div className="bg-white rounded-3xl p-8 sm:p-12 text-center text-slate-400 font-bold">Loading bookings...</div>
-          ) : bookings.length === 0 ? (
-            <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-100">
-              <p className="font-bold text-slate-700">No bookings yet.</p>
-              <p className="text-slate-400 mt-2">Your service requests and assigned jobs will appear here.</p>
+        {!user?.canAccessDashboard && user?.role !== 'admin' && (
+          <section className="bg-white rounded-3xl border border-slate-100 premium-shadow p-6 sm:p-8 text-center">
+            <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl mx-auto flex items-center justify-center mb-4">
+              <ShieldCheck size={28} />
             </div>
-          ) : bookings.map((booking) => {
-            const otherPerson = user?.role === 'worker' ? booking.user : booking.worker;
-            return (
-              <article key={booking._id} className="bg-white rounded-3xl border border-slate-100 premium-shadow p-4 sm:p-6 flex flex-col lg:flex-row gap-5 lg:items-center justify-between">
-                <div className="space-y-2 min-w-0">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 break-words">{booking.service}</h3>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${statusStyles[booking.status] || statusStyles.pending}`}>{booking.status}</span>
-                  </div>
-                  <p className="text-slate-500 break-words">With {otherPerson?.name} at {booking.address}</p>
-                  {otherPerson?.phone && (
-                    <div className="flex items-center gap-2 text-primary-600 font-bold text-sm bg-primary-50/50 w-fit px-3 py-1.5 rounded-lg border border-primary-100 mt-1">
-                      <Phone size={14} />
-                      <span>Contact: {otherPerson.phone}</span>
-                    </div>
-                  )}
-                  <p className="flex items-start gap-2 text-sm font-bold text-slate-500">
-                    <Clock size={16} className="mt-0.5 shrink-0" /> <span>{format(new Date(booking.scheduledDate), 'PPp')}</span>
-                  </p>
-                  <p className="text-sm font-bold text-slate-500">
-                    {formatInr(booking.totalPrice)} - Payment {booking.paymentStatus}
-                  </p>
-                  {booking.additionalNotes && <p className="text-slate-600">{booking.additionalNotes}</p>}
-                  
-                  {(booking.status === 'accepted' || booking.status === 'in_progress') && (
-                    <div className="mt-4">
-                       <div className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-900">
-                          <MapPin size={16} className="text-primary-600" />
-                          <span>Live Worker Tracking</span>
-                       </div>
-                       <TrackingMap 
-                         bookingId={booking._id} 
-                         userLocation={[user.location.coordinates[1], user.location.coordinates[0]]} 
-                       />
-                    </div>
-                  )}
-                </div>
-
-                  <div className="flex flex-wrap gap-3 lg:justify-end">
-                    {booking.status === 'accepted' && (
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <div className="relative">
-                          <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                          <input 
-                            placeholder="Worker's OTP" 
-                            className="pl-10 pr-4 py-2 rounded-xl border border-slate-200 outline-none w-36 font-bold"
-                            value={otpInput[booking._id] || ''}
-                            onChange={(e) => setOtpInput({ ...otpInput, [booking._id]: e.target.value })}
-                          />
-                        </div>
-                        <button onClick={() => handleStartVerify(booking._id)} className="px-6 py-2 rounded-xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-all">Verify & Start</button>
-                      </div>
-                    )}
-
-                    {booking.status === 'in_progress' && (
-                       <div className="flex flex-col items-end gap-2">
-                          <div className="bg-emerald-50 px-4 py-2 rounded-xl text-center border border-emerald-100">
-                            <p className="text-[10px] font-bold text-emerald-500 uppercase">Tell Worker this OTP</p>
-                            <p className="text-xl font-black text-emerald-700 tracking-widest">{booking.completionOTP}</p>
-                          </div>
-                      </div>
-                    )}
-
-                    {user?.role === 'user' && ['pending', 'accepted'].includes(booking.status) && (
-                      <button onClick={() => changeStatus(booking._id, 'cancelled')} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">Cancel</button>
-                    )}
-                    {user?.role === 'user' && booking.paymentStatus !== 'paid' && ['accepted', 'completed'].includes(booking.status) && (
-                      <button onClick={() => changePayment(booking._id, 'paid')} className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-bold">Mark Paid</button>
-                    )}
-                  </div>
-
-                {user?.role === 'user' && booking.status === 'completed' && !booking.review && (
-                  <div className="lg:basis-full grid sm:grid-cols-[140px_1fr_auto] gap-3 pt-4 border-t border-slate-100">
-                    <select value={reviewForms[booking._id]?.rating || 5} onChange={(e) => setReviewForms({ ...reviewForms, [booking._id]: { ...reviewForms[booking._id], rating: Number(e.target.value) } })} className="bg-slate-50 rounded-xl px-3 py-2 outline-none">
-                      {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} stars</option>)}
-                    </select>
-                    <input value={reviewForms[booking._id]?.comment || ''} onChange={(e) => setReviewForms({ ...reviewForms, [booking._id]: { ...reviewForms[booking._id], comment: e.target.value } })} placeholder="Share a quick review" className="bg-slate-50 rounded-xl px-3 py-2 outline-none" />
-                    <button onClick={() => submitReview(booking._id)} className="px-4 py-2 rounded-xl bg-primary-600 text-white font-bold">Review</button>
-                  </div>
-                )}
-                {booking.review && (
-                  <p className="lg:basis-full text-sm font-bold text-emerald-700 bg-emerald-50 rounded-xl px-4 py-3">
-                    Reviewed: {booking.review.rating} stars
-                  </p>
-                )}
-              </article>
-            );
-          })}
-
-          {pagination.pages > 1 && (
-            <div className="flex flex-wrap justify-center gap-3 pt-4">
-              <button disabled={pagination.page <= 1} onClick={() => fetchBookings(pagination.page - 1)} className="px-5 py-3 bg-white border border-slate-100 rounded-xl font-bold disabled:opacity-40">Previous</button>
-              <span className="px-5 py-3 text-slate-500 font-bold">Page {pagination.page} of {pagination.pages}</span>
-              <button disabled={pagination.page >= pagination.pages} onClick={() => fetchBookings(pagination.page + 1)} className="px-5 py-3 bg-white border border-slate-100 rounded-xl font-bold disabled:opacity-40">Next</button>
-            </div>
-          )}
-        </section>
+            <h2 className="text-2xl font-bold font-heading text-slate-900 mb-2">Dashboard Access Is Waiting</h2>
+            <p className="text-slate-500 max-w-2xl mx-auto font-medium">
+              Complete your profile, upload verification, and wait for admin approval. Your bookings and dashboard tools will appear here after approval.
+            </p>
+          </section>
+        )}
       </main>
     </div>
   );

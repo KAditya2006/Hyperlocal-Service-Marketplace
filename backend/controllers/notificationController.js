@@ -1,7 +1,7 @@
 const Notification = require('../models/Notification');
 const { getPagination } = require('../utils/bookingRules');
 
-exports.getNotifications = async (req, res) => {
+exports.getNotifications = async (req, res, next) => {
   try {
     const { page, limit, skip } = getPagination(req.query);
     const filter = { user: req.user.id };
@@ -20,15 +20,15 @@ exports.getNotifications = async (req, res) => {
       pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.markNotificationsRead = async (req, res) => {
+exports.markNotificationsRead = async (req, res, next) => {
   try {
     await Notification.updateMany({ user: req.user.id, read: false }, { read: true });
     res.status(200).json({ success: true, message: 'Notifications marked as read' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };

@@ -6,6 +6,7 @@ import { updateProfile, updateAvatar } from '../services/api';
 import { User, Mail, Phone, MapPin, Home, ArrowLeft, Save, Camera, Loader2 } from 'lucide-react';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import toast from 'react-hot-toast';
+import { getDashboardPath } from '../utils/onboarding';
 
 const EditProfile = () => {
   const { user, setUser } = useAuth();
@@ -64,8 +65,13 @@ const EditProfile = () => {
       const { data } = await updateProfile(formData);
       if (data.success) {
         toast.success('Profile updated successfully');
-        setUser(data.user); // Update local auth state
-        navigate('/profile');
+        setUser(data.user);
+
+        if (data.user?.canAccessDashboard && data.user?.role !== 'admin') {
+          navigate(getDashboardPath(data.user), { replace: true });
+        } else {
+          navigate('/profile', { state: { onboarding: true } });
+        }
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update profile');

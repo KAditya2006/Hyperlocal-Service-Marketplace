@@ -3,6 +3,7 @@ import { getAdminStats, getAuditLogs, getPendingWorkers, approveWorker } from '.
 import Navbar from '../components/Navbar';
 import { ShieldAlert, Users, CheckCircle, XCircle, Eye, Search, TrendingUp, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { fallbackAvatar, withImageFallback } from '../utils/images';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -114,7 +115,7 @@ const AdminDashboard = () => {
                   <tr key={item._id} className="hover:bg-slate-50/30 transition-colors">
                     <td className="px-8 py-6">
                        <div className="flex items-center gap-4">
-                          <img src={item.user?.avatar} alt="" className="w-12 h-12 rounded-2xl object-cover border border-slate-100" />
+                          <img src={item.user?.avatar || fallbackAvatar} onError={withImageFallback()} alt="" className="w-12 h-12 rounded-2xl object-cover border border-slate-100" />
                           <div>
                              <p className="font-bold text-slate-900">{item.user?.name}</p>
                              <p className="text-xs font-semibold text-slate-400">{item.user?.email}</p>

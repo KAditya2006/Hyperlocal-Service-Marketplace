@@ -1,7 +1,7 @@
 const WorkerProfile = require('../models/WorkerProfile');
 const User = require('../models/User');
 
-exports.getWorkerProfile = async (req, res) => {
+exports.getWorkerProfile = async (req, res, next) => {
   try {
     const profile = await WorkerProfile.findOne({ user: req.user.id }).populate('user', 'name email avatar phone');
     if (!profile) {
@@ -9,11 +9,11 @@ exports.getWorkerProfile = async (req, res) => {
     }
     res.status(200).json({ success: true, data: profile });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.updateProfile = async (req, res) => {
+exports.updateProfile = async (req, res, next) => {
   try {
     const { skills, experience, bio, pricing, availability, address, coordinates } = req.body;
     const profileUpdates = {};
@@ -46,15 +46,12 @@ exports.updateProfile = async (req, res) => {
 
     res.status(200).json({ success: true, data: profile });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.uploadKYC = async (req, res) => {
+exports.uploadKYC = async (req, res, next) => {
   try {
-    console.log('--- Worker KYC Upload Attempt ---');
-    console.log('User:', req.user.id);
-    
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Please upload ID Proof' });
     }
@@ -72,10 +69,12 @@ exports.uploadKYC = async (req, res) => {
       { new: true }
     );
 
-    console.log('Worker KYC Updated Successfully');
+    if (!profile) {
+      return res.status(404).json({ success: false, message: 'Profile not found' });
+    }
+
     res.status(200).json({ success: true, message: 'KYC submitted for approval', data: profile });
   } catch (error) {
-    console.error('Worker KYC Error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };

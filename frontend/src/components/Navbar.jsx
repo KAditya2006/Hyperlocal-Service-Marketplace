@@ -6,6 +6,8 @@ import { io } from 'socket.io-client';
 import { getNotifications, markNotificationsRead } from '../services/api';
 import BrandLogo from './BrandLogo';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
+import { getDashboardPath } from '../utils/onboarding';
+import toast from 'react-hot-toast';
 
 const Navbar = () => {
   const { user, token, logout } = useAuth();
@@ -38,7 +40,7 @@ const Navbar = () => {
     socket.on('new_notification', (notification) => {
       setNotifications(prev => [notification, ...prev.slice(0, 4)]);
       setUnread(prev => prev + 1);
-      toast((t) => (
+      toast(() => (
         <span className="flex items-center gap-2">
           <Bell size={18} className="text-primary-600" />
           <b>{notification.title}:</b> {notification.text}
@@ -61,7 +63,7 @@ const Navbar = () => {
   return (
     <nav className="glass sticky top-0 z-50 w-full border-b border-gray-100">
       <div className="px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
-        <Link to="/" className="shrink-0" aria-label="HyperlocalMarket home">
+        <Link to="/" className="shrink-0" aria-label="InstantSeva home">
           <BrandLogo />
         </Link>
 
@@ -98,8 +100,18 @@ const Navbar = () => {
               )}
             </div>
              {user?.role === 'worker' && (
-              <Link to="/worker/dashboard" className="hidden sm:inline-flex text-xs bg-primary-50 text-primary-700 px-3 py-1 rounded-full font-semibold border border-primary-100 hover:bg-primary-100 transition-colors">
-                Worker Panel
+              <Link to={user?.canAccessDashboard ? getDashboardPath(user) : '/profile'} className="hidden sm:inline-flex text-xs bg-primary-50 text-primary-700 px-3 py-1 rounded-full font-semibold border border-primary-100 hover:bg-primary-100 transition-colors">
+                {user?.canAccessDashboard ? 'Worker Panel' : 'Complete Profile'}
+              </Link>
+            )}
+            {user?.role === 'user' && user?.canAccessDashboard && (
+              <Link to="/dashboard" className="hidden sm:inline-flex text-xs bg-primary-50 text-primary-700 px-3 py-1 rounded-full font-semibold border border-primary-100 hover:bg-primary-100 transition-colors">
+                Dashboard
+              </Link>
+            )}
+            {user?.role === 'user' && !user?.canAccessDashboard && (
+              <Link to="/profile" className="hidden sm:inline-flex text-xs bg-amber-50 text-amber-700 px-3 py-1 rounded-full font-semibold border border-amber-100 hover:bg-amber-100 transition-colors">
+                Complete Profile
               </Link>
             )}
             {user?.role === 'admin' && (
@@ -138,7 +150,8 @@ const Navbar = () => {
           {!token && <Link onClick={() => setMobileOpen(false)} to="/signup" className="rounded-xl bg-white/70 px-4 py-3">Become a Worker</Link>}
           {!token && <Link onClick={() => setMobileOpen(false)} to="/login" className="rounded-xl bg-white/70 px-4 py-3">Login</Link>}
           {!token && <Link onClick={() => setMobileOpen(false)} to="/signup" className="rounded-xl bg-primary-600 text-white px-4 py-3">Get Started</Link>}
-          {user?.role === 'worker' && <Link onClick={() => setMobileOpen(false)} to="/worker/dashboard" className="rounded-xl bg-white/70 px-4 py-3">Worker Panel</Link>}
+          {user?.role === 'worker' && <Link onClick={() => setMobileOpen(false)} to={user?.canAccessDashboard ? getDashboardPath(user) : '/profile'} className="rounded-xl bg-white/70 px-4 py-3">{user?.canAccessDashboard ? 'Worker Panel' : 'Complete Profile'}</Link>}
+          {user?.role === 'user' && <Link onClick={() => setMobileOpen(false)} to={user?.canAccessDashboard ? '/dashboard' : '/profile'} className="rounded-xl bg-white/70 px-4 py-3">{user?.canAccessDashboard ? 'Dashboard' : 'Complete Profile'}</Link>}
           {user?.role === 'admin' && <Link onClick={() => setMobileOpen(false)} to="/admin/dashboard" className="rounded-xl bg-white/70 px-4 py-3">Admin Panel</Link>}
           {token && <Link onClick={() => setMobileOpen(false)} to="/profile" className="rounded-xl bg-white/70 px-4 py-3">Profile</Link>}
         </div>

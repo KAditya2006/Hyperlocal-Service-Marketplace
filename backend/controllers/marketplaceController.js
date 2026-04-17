@@ -4,7 +4,7 @@ const Review = require('../models/Review');
 const { getPagination } = require('../utils/bookingRules');
 const escapeRegex = require('../utils/escapeRegex');
 
-exports.searchWorkers = async (req, res) => {
+exports.searchWorkers = async (req, res, next) => {
   try {
     const { service, q, minRating, maxPrice } = req.query;
     const { page, limit, skip } = getPagination(req.query);
@@ -51,11 +51,11 @@ exports.searchWorkers = async (req, res) => {
       pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.getWorkerDetails = async (req, res) => {
+exports.getWorkerDetails = async (req, res, next) => {
   try {
     const worker = await WorkerProfile.findOne({
       user: req.params.workerId,
@@ -73,6 +73,6 @@ exports.getWorkerDetails = async (req, res) => {
 
     res.status(200).json({ success: true, data: { worker, reviews } });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };

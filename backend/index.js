@@ -1,16 +1,28 @@
 require('dotenv').config();
+const { validateEnv } = require('./config/validateEnv');
 const http = require('http');
 const app = require('./app');
 const connectDB = require('./config/db');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
+const Booking = require('./models/Booking');
+
+validateEnv();
 
 const PORT = process.env.PORT || 5000;
-const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+const renderOrigin = process.env.RENDER_EXTERNAL_URL;
+const allowedOrigins = renderOrigin ? [...configuredOrigins, renderOrigin] : configuredOrigins;
+const isAllowedOrigin = (origin) => !origin || allowedOrigins.includes(origin) || origin.endsWith('.onrender.com');
+const logDev = (...args) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(...args);
+  }
+};
 
 // Connect to Database
 connectDB();
@@ -21,7 +33,12 @@ const server = http.createServer(app);
 // Socket.io setup
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin(origin, callback) {
+      if (isAllowedOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST']
   }
 });
@@ -53,14 +70,14 @@ io.use(async (socket, next) => {
 
 // Socket logic
 io.on('connection', (socket) => {
-  console.log('A user connected:', socket.user._id.toString());
+  logDev('A user connected:', socket.user._id.toString());
 
   socket.on('join_chat', async (chatId) => {
     const chat = await Chat.findOne({ _id: chatId, participants: socket.user._id });
     if (!chat) return;
 
     socket.join(chatId);
-    console.log(`User ${socket.user._id.toString()} joined chat room: ${chatId}`);
+    logDev(`User ${socket.user._id.toString()} joined chat room: ${chatId}`);
   });
 
   socket.on('send_message', async (data) => {
@@ -130,7 +147,7 @@ io.on('connection', (socket) => {
         booking.worker.toString() !== socket.user._id.toString()) return;
 
     socket.join(`booking_${bookingId}`);
-    console.log(`User ${socket.user._id.toString()} joined booking room: ${bookingId}`);
+    logDev(`User ${socket.user._id.toString()} joined booking room: ${bookingId}`);
   });
 
   socket.on('update_worker_location', async (data) => {
@@ -162,7 +179,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected');
+    logDev('User disconnected');
   });
 });
 

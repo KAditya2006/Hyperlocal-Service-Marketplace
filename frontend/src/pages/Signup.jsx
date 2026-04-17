@@ -47,7 +47,7 @@ const Signup = () => {
       <div className="hidden lg:flex lg:w-1/2 bg-primary-600 p-10 xl:p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute top-[-20%] right-[-20%] w-[600px] h-[600px] bg-white/10 rounded-full blur-[100px]" />
         <div className="relative z-10">
-          <Link to="/" className="inline-flex" aria-label="HyperlocalMarket home">
+          <Link to="/" className="inline-flex" aria-label="InstantSeva home">
             <BrandLogo light />
           </Link>
           <div className="mt-24 max-w-lg">
@@ -76,7 +76,7 @@ const Signup = () => {
         <div className="w-full max-w-md">
           <div className="mb-8 sm:mb-10 text-center lg:text-left">
             <h3 className="text-2xl sm:text-3xl font-bold font-heading text-slate-900 mb-2">Create an Account</h3>
-            <p className="text-slate-500">Join the marketplace and discover talented pros.</p>
+            <p className="text-slate-500">Join InstantSeva and discover talented pros.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

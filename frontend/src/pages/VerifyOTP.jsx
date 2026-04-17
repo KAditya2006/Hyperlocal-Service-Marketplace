@@ -4,6 +4,7 @@ import { verifyOTP, resendOTP } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { ShieldCheck, ArrowLeft, RefreshCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getPostAuthRedirect } from '../utils/onboarding';
 
 const VerifyOTP = () => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -61,14 +62,8 @@ const VerifyOTP = () => {
         toast.success('Email verified successfully!');
         login(data.user, data.token);
         
-        // Redirect based on role
-        if (data.user.role === 'worker') {
-          navigate('/worker/dashboard');
-        } else if (data.user.role === 'admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/');
-        }
+        const redirectPath = getPostAuthRedirect(data.user);
+        navigate(redirectPath, { state: redirectPath === '/profile' ? { onboarding: true } : undefined });
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Invalid OTP');

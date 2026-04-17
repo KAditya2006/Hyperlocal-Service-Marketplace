@@ -20,8 +20,15 @@ const ensureUser = async (email, data) => {
 const seed = async () => {
   await connectDB();
 
-  await ensureUser('kaditya39546@gmail.com', { name: 'Admin User', role: 'admin', isVerified: true });
-  const customer = await ensureUser('customer@hyperlocal.test', { name: 'Customer User', role: 'user', isVerified: true, location: { type: 'Point', coordinates: [77.1025, 28.7041], address: 'Rohini, Delhi', homeNumber: 'H-12, Sector 9' } });
+  await ensureUser('kaditya39546@gmail.com', { name: 'Admin User', role: 'admin', isVerified: true, isAdminApproved: true });
+  const customer = await ensureUser('customer@instantseva.test', {
+    name: 'Customer User',
+    role: 'user',
+    isVerified: true,
+    isAdminApproved: true,
+    kyc: { status: 'verified' },
+    location: { type: 'Point', coordinates: [77.1025, 28.7041], address: 'Rohini, Delhi', homeNumber: 'H-12, Sector 9' }
+  });
   
   const additionalLocations = [
     { email: 'plumber1@test.com', name: 'Amit Plumber', profession: 'plumber', coords: [77.391, 28.5355], address: 'Sector 62, Noida' },
@@ -39,6 +46,7 @@ const seed = async () => {
       name: loc.name,
       role: 'worker',
       isVerified: true,
+      isAdminApproved: true,
       location: { type: 'Point', coordinates: loc.coords, address: loc.address }
     });
 
@@ -52,7 +60,7 @@ const seed = async () => {
         user: user._id,
         professions,
         experience: 4,
-        bio: `Professional ${professions.join(' & ')} with years of local experience.`,
+        bio: `Professional ${professions.join(' & ')} with years of local experience on InstantSeva.`,
         pricing: { amount: 500, unit: 'hour' },
         availability: true,
         approvalStatus: 'approved'
@@ -63,15 +71,22 @@ const seed = async () => {
     // Also sync to main WorkerProfile for global search
     await WorkerProfile.findOneAndUpdate(
       { user: user._id },
-      { user: user._id, skills: professions, experience: 4, bio: `Verified ${professions[0]}`, approvalStatus: 'approved' },
+      {
+        user: user._id,
+        skills: professions,
+        experience: 4,
+        bio: `Verified InstantSeva ${professions[0]}`,
+        approvalStatus: 'approved',
+        kyc: { status: 'verified' }
+      },
       { upsert: true }
     );
   }
 
-  console.log('Seed complete');
+  console.log('Seed complete - Identity: InstantSeva');
   console.log('Admin: kaditya39546@gmail.com / password123');
-  console.log('Customer: customer@hyperlocal.test / password123');
-  console.log('Worker: worker@hyperlocal.test / password123');
+  console.log('Customer: customer@instantseva.test / password123');
+  console.log('Worker Examples (check additionalLocations array above)');
   process.exit(0);
 };
 

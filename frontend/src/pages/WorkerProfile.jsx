@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { CalendarDays, MapPin, MessageSquare, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatInr } from '../utils/formatters';
+import { fallbackAvatar, withImageFallback } from '../utils/images';
 
 const WorkerProfile = () => {
   const { workerId } = useParams();
@@ -71,7 +72,7 @@ const WorkerProfile = () => {
         <section className="space-y-6 min-w-0">
           <div className="bg-white border border-slate-100 premium-shadow rounded-3xl p-4 sm:p-8">
             <div className="flex flex-col md:flex-row gap-5 sm:gap-6">
-              <img src={worker.user?.avatar} alt={worker.user?.name} className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl sm:rounded-3xl object-cover" />
+              <img src={worker.user?.avatar || fallbackAvatar} onError={withImageFallback()} alt={worker.user?.name} className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl sm:rounded-3xl object-cover" />
               <div className="space-y-3 min-w-0">
                 <h1 className="text-3xl sm:text-4xl font-bold font-heading text-slate-900 break-words">{worker.user?.name}</h1>
                 <p className="flex items-center gap-2 text-amber-500 font-bold"><Star fill="currentColor" size={18} /> {worker.averageRating?.toFixed(1) || '0.0'} ({worker.totalReviews || 0} reviews)</p>

@@ -10,7 +10,9 @@ const run = (name, fn) => {
 run('booking transitions allow only valid lifecycle moves', () => {
   assert.equal(canTransitionBooking('pending', 'accepted'), true);
   assert.equal(canTransitionBooking('pending', 'cancelled'), true);
-  assert.equal(canTransitionBooking('accepted', 'completed'), true);
+  assert.equal(canTransitionBooking('accepted', 'in_progress'), true);
+  assert.equal(canTransitionBooking('accepted', 'completed'), false);
+  assert.equal(canTransitionBooking('in_progress', 'completed'), true);
   assert.equal(canTransitionBooking('completed', 'accepted'), false);
   assert.equal(canTransitionBooking('cancelled', 'completed'), false);
 });

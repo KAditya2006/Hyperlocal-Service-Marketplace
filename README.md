@@ -24,6 +24,22 @@ copy frontend\.env.example frontend\.env
 
 Fill in MongoDB, SMTP, Cloudinary, and JWT values in `backend/.env`.
 
+For deployment, configure these backend environment variables in Render:
+
+- `MONGO_URI`
+- `JWT_SECRET`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `FROM_NAME`
+- `FROM_EMAIL`
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+- `CLIENT_ORIGIN`
+- `RENDER_EXTERNAL_URL`
+
 ## Development
 
 ```bash
@@ -31,6 +47,8 @@ npm run dev
 ```
 
 The frontend defaults to `http://localhost:5173` and the backend defaults to `http://localhost:5000`.
+
+After deployment, check `/api/health` on the deployed URL to confirm database, frontend build, and environment status.
 
 ## Useful Scripts
 
@@ -52,9 +70,9 @@ npm run seed --prefix backend
 
 The seed script upserts sample users and marketplace data without deleting existing records:
 
-- Admin: `admin@hyperlocal.test` / `password123`
-- Customer: `customer@hyperlocal.test` / `password123`
-- Worker: `worker@hyperlocal.test` / `password123`
+- Admin: `kaditya39546@gmail.com` / `password123`
+- Customer: `customer@instantseva.test` / `password123`
+- Worker examples: `plumber1@test.com`, `electric1@test.com`, `carpenter1@test.com`, `tutor1@test.com`, `ac1@test.com`, `multi1@test.com` / `password123`
 
 ## Current Limitations
 

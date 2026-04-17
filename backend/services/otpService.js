@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+const sendEmail = require('../utils/sendEmail');
 
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -11,33 +11,31 @@ const sendOTPEmail = async (email, otp, type = 'Start') => {
     console.log(`[DEV ONLY] OTP for ${email} (${type}): ${otp}`);
   }
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
-  });
-
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: email,
-    subject: `Your ${type} OTP for Hyperlocal Service Booking`,
-    html: `
-      <div style="font-family: sans-serif; padding: 20px; color: #333;">
-        <h2>Booking Verification Code</h2>
-        <p>Please use the following code to verify your booking step:</p>
-        <h1 style="color: #6366f1; letter-spacing: 5px;">${otp}</h1>
-        <p>This code is valid for 10 minutes.</p>
+  try {
+    await sendEmail({
+      email,
+      subject: `Your ${type} Verification Code for InstantSeva`,
+      message: `Your ${type.toLowerCase()} verification code for InstantSeva is ${otp}. This code is valid for 10 minutes.`,
+      html: `
+      <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; border: 1px solid #eee; border-radius: 12px;">
+        <h1 style="color: #4f46e5; margin-bottom: 24px;">InstantSeva</h1>
+        <p style="font-size: 16px; line-height: 1.5;">Please use the following single-use code to verify your action on InstantSeva:</p>
+        <div style="background: #f8fafc; padding: 24px; border-radius: 12px; text-align: center; margin: 24px 0;">
+          <h1 style="color: #4f46e5; letter-spacing: 12px; font-size: 32px; margin: 0;">${otp}</h1>
+        </div>
+        <p style="color: #64748b; font-size: 14px;">This code is valid for 10 minutes. If you did not request this, please ignore this email.</p>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 24px 0;" />
+        <p style="font-size: 12px; color: #94a3b8;">(c) 2026 InstantSeva. All rights reserved.</p>
       </div>
     `
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
+    });
   } catch (error) {
+    if (isDev && error.code === 'SMTP_CONFIG_MISSING') {
+      console.warn('[DEV ONLY] SMTP is not configured, so the logged OTP was not emailed.');
+      return;
+    }
+
     console.error('Email sending failed:', error);
-    // In dev, we don't want to crash if email settings are missing
     if (!isDev) throw new Error('Could not send OTP email');
   }
 };

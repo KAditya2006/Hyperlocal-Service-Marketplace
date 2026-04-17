@@ -1,10 +1,25 @@
 const nodemailer = require('nodemailer');
 
+const getMissingSmtpConfig = () => {
+  return ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'].filter((key) => !process.env[key]);
+};
+
 const sendEmail = async (options) => {
+  const missingConfig = getMissingSmtpConfig();
+  if (missingConfig.length > 0) {
+    const error = new Error(`SMTP email is not configured: ${missingConfig.join(', ')}`);
+    error.code = 'SMTP_CONFIG_MISSING';
+    throw error;
+  }
+
+  const smtpPort = Number(process.env.SMTP_PORT);
+  const fromEmail = process.env.FROM_EMAIL || process.env.SMTP_USER;
+  const fromName = process.env.FROM_NAME || 'InstantSeva';
+
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT, 10),
-    secure: process.env.SMTP_PORT == 465, // true for 465, false for others
+    port: smtpPort,
+    secure: smtpPort === 465,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS
@@ -16,7 +31,7 @@ const sendEmail = async (options) => {
   });
 
   const message = {
-    from: `${process.env.FROM_NAME} <${process.env.SMTP_USER}>`, // Recommended for Gmail
+    from: `${fromName} <${fromEmail}>`,
     to: options.email,
     subject: options.subject,
     text: options.message,

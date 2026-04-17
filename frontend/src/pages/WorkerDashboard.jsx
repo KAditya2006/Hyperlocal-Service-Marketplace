@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { getBookings, getWorkerProfile, updateBookingStatus, updateWorkerProfile, uploadKYC, verifyCompletionOTP } from '../services/api';
 import Navbar from '../components/Navbar';
-import { LayoutDashboard, FileCheck, DollarSign, Briefcase, Star, Clock, AlertCircle, CheckCircle2, Upload, User as UserIcon, Shield, Key } from 'lucide-react';
+import { LayoutDashboard, FileCheck, DollarSign, Briefcase, Star, Clock, AlertCircle, CheckCircle2, Upload, User as UserIcon, XCircle, Key } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { formatInr } from '../utils/formatters';
+import { useAuth } from '../context/AuthContext';
+import { fallbackAvatar, withImageFallback } from '../utils/images';
 
 const WorkerDashboard = () => {
   const [profile, setProfile] = useState(null);
@@ -88,10 +90,19 @@ const WorkerDashboard = () => {
     }
   };
 
+  const handleJobStatus = async (bookingId, status) => {
+    try {
+      await updateBookingStatus(bookingId, status);
+      toast.success('Job updated');
+      fetchBookings(jobsPagination.page);
+      fetchProfile();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not update job');
+    }
+  };
+
   const handleKycSubmit = async (e) => {
     e.preventDefault();
-    console.log('--- Worker KYC Submit Clicked ---');
-    console.log('File:', kycFiles.idProof);
 
     if (!kycFiles.idProof) {
       toast.error('Please select an ID Proof');
@@ -103,9 +114,7 @@ const WorkerDashboard = () => {
 
     setUploading(true);
     try {
-      console.log('Sending Worker KYC request...');
       const { data } = await uploadKYC(formData);
-      console.log('Worker KYC Success Response:', data);
 
       toast.success(data.message || 'KYC submitted successfully!');
       
@@ -267,7 +276,7 @@ const WorkerDashboard = () => {
             <h3 className="text-2xl font-bold text-slate-900 mb-8 font-heading">Public Profile Overview</h3>
             <div className="flex flex-col md:flex-row gap-6 sm:gap-10 items-start">
                <div className="w-32 h-32 rounded-[32px] overflow-hidden border-4 border-slate-50">
-                  <img src={profile?.user?.avatar} alt="Profile" className="w-full h-full object-cover" />
+                  <img src={profile?.user?.avatar || fallbackAvatar} onError={withImageFallback()} alt="Profile" className="w-full h-full object-cover" />
                </div>
                <div className="flex-1 space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">

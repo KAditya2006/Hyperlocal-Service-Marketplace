@@ -5,8 +5,34 @@ const { getWorkerModel } = require('../models/WorkerModels');
 const PasswordReset = require('../models/PasswordReset');
 const generateOTP = require('../utils/generateOTP');
 const sendEmail = require('../utils/sendEmail');
+const { toPublicUser } = require('../utils/userAccess');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+
+const MAX_OTP_ATTEMPTS = 5;
+const MAX_PASSWORD_RESET_ATTEMPTS = 5;
+
+const normalizeEmail = (email = '') => String(email).trim().toLowerCase();
+
+const recordFailedAttempt = async (record, maxAttempts) => {
+  record.attempts = (record.attempts || 0) + 1;
+  record.lastAttemptAt = new Date();
+
+  if (record.attempts >= maxAttempts) {
+    await record.deleteOne();
+    return true;
+  }
+
+  await record.save();
+  return false;
+};
+
+const compareTokenHash = (storedHash, submittedHash) => {
+  const stored = Buffer.from(String(storedHash), 'hex');
+  const submitted = Buffer.from(String(submittedHash), 'hex');
+
+  return stored.length === submitted.length && crypto.timingSafeEqual(stored, submitted);
+};
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -15,37 +41,24 @@ const generateToken = (id) => {
   });
 };
 
-const serializeUser = (user) => ({
-  id: user._id,
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  avatar: user.avatar,
-  phone: user.phone,
-  location: user.location,
-  isVerified: user.isVerified
-});
-
 exports.register = async (req, res, next) => {
-  console.log('--- Registration Attempt ---');
-  console.log('Email:', req.body.email);
-  console.log('Role:', req.body.role);
   try {
     const { name, email, password, role, address, homeNumber, phone, city, area, landmark, pincode, professions, experience, bio } = req.body;
+    const normalizedEmail = normalizeEmail(email);
     const requestedRole = role === 'worker' ? 'worker' : 'user';
 
-    if (!name || !email || !password || !phone) {
+    if (!name || !normalizedEmail || !password || !phone) {
       return res.status(400).json({ success: false, message: 'Name, email, password, and phone number are required' });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: normalizedEmail });
     if (userExists) {
       return res.status(400).json({ success: false, message: 'User already exists' });
     }
 
     const user = await User.create({
       name,
-      email,
+      email: normalizedEmail,
       password,
       role: requestedRole,
       phone,
@@ -91,14 +104,20 @@ exports.register = async (req, res, next) => {
 
     // Generate & Send OTP
     const otpCode = generateOTP();
-    await OTP.create({ email, otp: otpCode });
+    await OTP.create({ email: normalizedEmail, otp: otpCode });
 
     try {
       await sendEmail({
         email: user.email,
-        subject: 'Email Verification - Hyperlocal Marketplace',
+        subject: 'Email Verification - InstantSeva',
         message: `Your OTP for email verification is: ${otpCode}. It expires in 10 minutes.`,
-        html: `<h1>Verify Your Email</h1><p>Your OTP is: <strong>${otpCode}</strong></p>`
+        html: `
+          <div style="font-family: sans-serif; color: #333;">
+            <h1 style="color: #4f46e5;">Welcome to InstantSeva!</h1>
+            <p>Your verification code is: <strong style="font-size: 24px; color: #4f46e5; letter-spacing: 2px;">${otpCode}</strong></p>
+            <p>This code expires in 10 minutes.</p>
+          </div>
+        `
       });
     } catch (err) {
       console.error('Email sending failed:', err);
@@ -118,13 +137,23 @@ exports.register = async (req, res, next) => {
 exports.verifyOTP = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+    const submittedOtp = String(otp || '').trim();
 
-    const otpRecord = await OTP.findOne({ email, otp });
+    const otpRecord = await OTP.findOne({ email: normalizedEmail }).sort({ createdAt: -1 });
     if (!otpRecord) {
       return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
     }
 
-    const user = await User.findOne({ email });
+    if (otpRecord.otp !== submittedOtp) {
+      const tooManyAttempts = await recordFailedAttempt(otpRecord, MAX_OTP_ATTEMPTS);
+      return res.status(400).json({
+        success: false,
+        message: tooManyAttempts ? 'Too many invalid attempts. Please request a new OTP.' : 'Invalid or expired OTP'
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -139,7 +168,7 @@ exports.verifyOTP = async (req, res, next) => {
     res.status(200).json({
       success: true,
       token,
-      user: serializeUser(user)
+      user: await toPublicUser(user)
     });
   } catch (error) {
     next(error);
@@ -149,12 +178,13 @@ exports.verifyOTP = async (req, res, next) => {
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({ success: false, message: 'Please provide email and password' });
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user || !(await user.comparePassword(password, user.password))) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
@@ -168,7 +198,7 @@ exports.login = async (req, res, next) => {
     res.status(200).json({
       success: true,
       token,
-      user: serializeUser(user)
+      user: await toPublicUser(user)
     });
   } catch (error) {
     next(error);
@@ -178,8 +208,9 @@ exports.login = async (req, res, next) => {
 exports.resendOTP = async (req, res, next) => {
   try {
     const { email } = req.body;
+    const normalizedEmail = normalizeEmail(email);
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -188,15 +219,15 @@ exports.resendOTP = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Email is already verified' });
     }
     
-    await OTP.deleteMany({ email });
+    await OTP.deleteMany({ email: normalizedEmail });
     const otpCode = generateOTP();
-    await OTP.create({ email, otp: otpCode });
+    await OTP.create({ email: normalizedEmail, otp: otpCode });
 
     await sendEmail({
-      email,
-      subject: 'Resend OTP - Hyperlocal Marketplace',
-      message: `Your new OTP is: ${otpCode}`,
-      html: `<h1>Your New OTP</h1><p>OTP: <strong>${otpCode}</strong></p>`
+      email: normalizedEmail,
+      subject: 'Resend OTP - InstantSeva',
+      message: `Your new OTP for InstantSeva is: ${otpCode}`,
+      html: `<h1>InstantSeva</h1><p>Your new OTP is: <strong>${otpCode}</strong></p>`
     });
 
     res.status(200).json({ success: true, message: 'OTP sent successfully' });
@@ -209,7 +240,7 @@ exports.me = async (req, res, next) => {
   try {
     res.status(200).json({
       success: true,
-      user: serializeUser(req.user)
+      user: await toPublicUser(req.user)
     });
   } catch (error) {
     next(error);
@@ -219,11 +250,13 @@ exports.me = async (req, res, next) => {
 exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
-    if (!email) {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (!normalizedEmail) {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(200).json({ success: true, message: 'If an account exists, a reset code has been sent' });
     }
@@ -236,8 +269,8 @@ exports.forgotPassword = async (req, res, next) => {
 
     await sendEmail({
       email: user.email,
-      subject: 'Password Reset - Hyperlocal Marketplace',
-      message: `Your password reset code is: ${resetToken}. It expires in 15 minutes.`,
+      subject: 'Password Reset - InstantSeva',
+      message: `Your password reset code for InstantSeva is: ${resetToken}. It expires in 15 minutes.`,
       html: `<h1>Password Reset</h1><p>Your reset code is: <strong>${resetToken}</strong></p>`
     });
 
@@ -250,19 +283,29 @@ exports.forgotPassword = async (req, res, next) => {
 exports.resetPassword = async (req, res, next) => {
   try {
     const { email, token, password } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+    const submittedToken = String(token || '').trim();
 
-    if (!email || !token || !password) {
+    if (!normalizedEmail || !submittedToken || !password) {
       return res.status(400).json({ success: false, message: 'Email, reset code, and new password are required' });
     }
 
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const resetRecord = await PasswordReset.findOne({ email, tokenHash });
+    const tokenHash = crypto.createHash('sha256').update(submittedToken).digest('hex');
+    const resetRecord = await PasswordReset.findOne({ email: normalizedEmail }).sort({ createdAt: -1 });
 
     if (!resetRecord) {
       return res.status(400).json({ success: false, message: 'Invalid or expired reset code' });
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    if (!compareTokenHash(resetRecord.tokenHash, tokenHash)) {
+      const tooManyAttempts = await recordFailedAttempt(resetRecord, MAX_PASSWORD_RESET_ATTEMPTS);
+      return res.status(400).json({
+        success: false,
+        message: tooManyAttempts ? 'Too many invalid reset attempts. Please request a new code.' : 'Invalid or expired reset code'
+      });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }

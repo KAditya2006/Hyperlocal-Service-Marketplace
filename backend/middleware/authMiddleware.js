@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { getUserAccessState } = require('../utils/userAccess');
 
 exports.protect = async (req, res, next) => {
   try {
@@ -45,4 +46,30 @@ exports.verifiedOnly = (req, res, next) => {
     });
   }
   next();
+};
+
+exports.dashboardApprovedOnly = async (req, res, next) => {
+  try {
+    const access = await getUserAccessState(req.user);
+
+    if (!access.canAccessDashboard) {
+      return res.status(403).json({
+        success: false,
+        message: access.profileComplete
+          ? 'Your profile is waiting for admin verification'
+          : 'Please complete your profile and submit verification first',
+        onboarding: {
+          profileComplete: access.profileComplete,
+          approvalStatus: access.approvalStatus,
+          verificationStatus: access.verificationStatus,
+          dashboardPath: access.dashboardPath
+        }
+      });
+    }
+
+    req.access = access;
+    next();
+  } catch (error) {
+    next(error);
+  }
 };

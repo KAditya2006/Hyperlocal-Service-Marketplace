@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { getOnboardingMessage } from './utils/onboarding';
 
 // Pages
 const Home = lazy(() => import('./pages/Home'));
@@ -9,6 +10,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const VerifyOTP = lazy(() => import('./pages/VerifyOTP'));
 const WorkerDashboard = lazy(() => import('./pages/WorkerDashboard'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const ChatPage = lazy(() => import('./pages/Chat'));
 const SearchPage = lazy(() => import('./pages/Search'));
@@ -16,19 +18,23 @@ const Profile = lazy(() => import('./pages/Profile'));
 const EditProfile = lazy(() => import('./pages/EditProfile'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const WorkerProfile = lazy(() => import('./pages/WorkerProfile'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center font-heading font-medium text-slate-500">
-    Loading Hyperlocal Marketplace...
+    Loading InstantSeva...
   </div>
 );
 
-const ProtectedRoute = ({ children, role }) => {
+const ProtectedRoute = ({ children, role, requireDashboardAccess = false }) => {
   const { token, user, loading } = useAuth();
 
   if (loading) return <div className="min-h-screen flex items-center justify-center font-heading font-medium text-slate-500">Loading Hyperlocal Marketplace...</div>;
   if (!token) return <Navigate to="/login" />;
   if (role && user?.role !== role) return <Navigate to="/" />;
+  if (requireDashboardAccess && !user?.canAccessDashboard) {
+    return <Navigate to="/profile" replace state={{ notice: getOnboardingMessage(user) }} />;
+  }
 
   return children;
 };
@@ -62,10 +68,19 @@ function AppRoutes() {
       <Route 
         path="/worker/dashboard/*" 
         element={
-          <ProtectedRoute role="worker">
+          <ProtectedRoute role="worker" requireDashboardAccess>
             <WorkerDashboard />
           </ProtectedRoute>
         } 
+      />
+
+      <Route
+        path="/dashboard/*"
+        element={
+          <ProtectedRoute role="user" requireDashboardAccess>
+            <Dashboard />
+          </ProtectedRoute>
+        }
       />
       
       <Route 
@@ -103,7 +118,7 @@ function AppRoutes() {
         } 
       />
 
-      <Route path="*" element={<div>404 - Not Found</div>} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

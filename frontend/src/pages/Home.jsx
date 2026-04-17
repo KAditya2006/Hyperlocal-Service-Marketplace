@@ -73,10 +73,10 @@ const Home = () => {
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold font-heading tracking-tight text-slate-900 leading-[1.08] sm:leading-[1.1] mb-6">
-              Find Trusted <span className="gradient-text">Service Pros</span> <br /> Near Your Home
+              Expert Help at your <br /> <span className="gradient-text">Doorstep</span> with <span className="text-primary-600">InstantSeva</span>
             </h1>
             <p className="text-base sm:text-xl text-slate-600 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed">
-              Connect with verified plumbers, electricians, and more in seconds. Professional service, guaranteed quality, and upfront pricing.
+              Find trusted local experts in seconds. Professional service, guaranteed quality, and upfront pricing for every home need.
             </p>
 
             {/* Search Bar */}
@@ -160,12 +160,9 @@ const Home = () => {
           <div className="relative max-w-xl mx-auto lg:max-w-none w-full">
             <div className="aspect-square bg-gradient-to-tr from-primary-600 to-indigo-600 rounded-[32px] sm:rounded-[60px] sm:rotate-3 relative z-10 overflow-hidden premium-shadow">
               <img 
-                src="https://images.unsplash.com/photo-1581578731548-c64695cc6954?auto=format&fit=crop&q=80&w=1200" 
-                className="w-full h-full object-cover sm:-rotate-3 scale-110" 
+                src="/marketplace-pro.svg" 
+                className="w-full h-full object-cover sm:-rotate-3 scale-110 bg-white" 
                 alt="Professional Service"
-                onError={(e) => {
-                  e.target.src = 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&q=80&w=1200';
-                }}
               />
             </div>
             <div className="hidden sm:block absolute top-[-20px] left-[-20px] w-full h-full border-2 border-primary-500/30 rounded-[60px]" />

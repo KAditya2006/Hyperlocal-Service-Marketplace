@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import BrandLogo from '../components/BrandLogo';
+import { getPostAuthRedirect } from '../utils/onboarding';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -21,14 +22,8 @@ const Login = () => {
         toast.success('Welcome back!');
         login(data.user, data.token);
         
-        // Redirect based on role
-        if (data.user.role === 'worker') {
-          navigate('/worker/dashboard');
-        } else if (data.user.role === 'admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/');
-        }
+        const redirectPath = getPostAuthRedirect(data.user);
+        navigate(redirectPath, { state: redirectPath === '/profile' ? { onboarding: true } : undefined });
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed');
@@ -42,7 +37,7 @@ const Login = () => {
       <div className="w-full max-w-md">
         <div className="bg-white p-6 sm:p-8 md:p-12 rounded-3xl md:rounded-[40px] premium-shadow border border-slate-100">
           <div className="text-center mb-8 sm:mb-10">
-            <Link to="/" className="inline-flex justify-center mb-8" aria-label="HyperlocalMarket home">
+            <Link to="/" className="inline-flex justify-center mb-8" aria-label="InstantSeva home">
               <BrandLogo />
             </Link>
             <h1 className="text-2xl sm:text-3xl font-bold font-heading text-slate-900 mb-2">Welcome Back</h1>

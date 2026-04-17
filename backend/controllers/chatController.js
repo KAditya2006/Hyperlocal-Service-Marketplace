@@ -8,7 +8,7 @@ const findUserChat = (chatId, userId) => {
   return Chat.findOne({ _id: chatId, participants: userId });
 };
 
-exports.getChats = async (req, res) => {
+exports.getChats = async (req, res, next) => {
   try {
     const chats = await Chat.find({ participants: req.user.id })
       .populate('participants', 'name email avatar role')
@@ -16,11 +16,11 @@ exports.getChats = async (req, res) => {
     
     res.status(200).json({ success: true, data: chats });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.getMessages = async (req, res) => {
+exports.getMessages = async (req, res, next) => {
   try {
     const { chatId } = req.params;
     const { page, limit, skip } = getPagination(req.query);
@@ -42,11 +42,11 @@ exports.getMessages = async (req, res) => {
       pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
-exports.initiateChat = async (req, res) => {
+exports.initiateChat = async (req, res, next) => {
   try {
     const { recipientId } = req.body;
 
@@ -72,12 +72,12 @@ exports.initiateChat = async (req, res) => {
 
     res.status(200).json({ success: true, data: chat });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
 // Handle Image Message Upload via REST (Socket handles text)
-exports.uploadImageMessage = async (req, res) => {
+exports.uploadImageMessage = async (req, res, next) => {
   try {
     const { chatId } = req.body;
     if (!req.file) {
@@ -112,9 +112,9 @@ exports.uploadImageMessage = async (req, res) => {
     if (io) {
       io.to(chatId).emit('receive_message', populatedMessage);
 
-      chat.participants
+      await Promise.all(chat.participants
         .filter((participantId) => participantId.toString() !== req.user.id.toString())
-        .forEach(async (participantId) => {
+        .map(async (participantId) => {
           await createNotification({
             user: participantId,
             type: 'message',
@@ -129,11 +129,11 @@ exports.uploadImageMessage = async (req, res) => {
             senderName: req.user.name,
             text: 'Sent an image'
           });
-        });
+        }));
     }
 
     res.status(201).json({ success: true, data: populatedMessage });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };

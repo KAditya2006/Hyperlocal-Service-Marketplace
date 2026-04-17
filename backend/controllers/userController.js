@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { toPublicUser } = require('../utils/userAccess');
 
 exports.updateProfile = async (req, res, next) => {
   try {
@@ -33,16 +34,7 @@ exports.updateProfile = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully',
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        phone: user.phone,
-        location: user.location,
-        isVerified: user.isVerified
-      }
+      user: await toPublicUser(user)
     });
   } catch (error) {
     next(error);
@@ -78,11 +70,6 @@ exports.updateAvatar = async (req, res, next) => {
 
 exports.uploadKYC = async (req, res, next) => {
   try {
-    console.log('--- User KYC Upload Attempt ---');
-    console.log('User ID:', req.user?._id);
-    console.log('File received:', req.file ? req.file.fieldname : 'None');
-    console.log('Files received:', req.files ? Object.keys(req.files) : 'None');
-
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Please upload your ID Proof' });
     }

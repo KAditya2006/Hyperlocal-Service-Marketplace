@@ -7,17 +7,12 @@ const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Booking = require('./models/Booking');
+const { getAllowedOrigins, isAllowedOrigin } = require('./utils/allowedOrigins');
 
 validateEnv();
 
 const PORT = process.env.PORT || 5000;
-const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const renderOrigin = process.env.RENDER_EXTERNAL_URL;
-const allowedOrigins = renderOrigin ? [...configuredOrigins, renderOrigin] : configuredOrigins;
-const isAllowedOrigin = (origin) => !origin || allowedOrigins.includes(origin);
+const allowedOrigins = getAllowedOrigins();
 const logDev = (...args) => {
   if (process.env.NODE_ENV !== 'production') {
     console.log(...args);

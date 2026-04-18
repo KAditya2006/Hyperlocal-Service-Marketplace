@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { loginUser } from '../services/api';
+import { loginUser, resendOTP } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -35,7 +35,22 @@ const Login = () => {
         navigate(redirectPath, { state: redirectPath === '/profile' ? { onboarding: true } : undefined });
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      const message = error.response?.data?.message || 'Login failed';
+      const normalizedEmail = formData.email.trim().toLowerCase();
+
+      if (error.response?.status === 403 && message.toLowerCase().includes('verify')) {
+        try {
+          await resendOTP({ email: normalizedEmail });
+          toast.success('Please verify your email. OTP sent again.');
+        } catch {
+          toast.error(message);
+        }
+
+        navigate('/verify-otp', { state: { email: normalizedEmail } });
+        return;
+      }
+
+      toast.error(message);
     } finally {
       setLoading(false);
     }

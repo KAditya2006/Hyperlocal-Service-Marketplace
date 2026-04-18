@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
 const { getMissingEnv, OPTIONAL_SERVICE_GROUPS, REQUIRED_IN_PRODUCTION } = require('./config/validateEnv');
+const { getAllowedOrigins, isAllowedOrigin } = require('./utils/allowedOrigins');
 
 const app = express();
 const frontendDistPath = path.join(__dirname, '../frontend/dist');
@@ -32,16 +33,11 @@ const contentSecurityPolicy = isProduction ? {
 
 app.use(helmet({ contentSecurityPolicy }));
 
-const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-const renderOrigin = process.env.RENDER_EXTERNAL_URL;
-const allowedOrigins = renderOrigin ? [...configuredOrigins, renderOrigin] : configuredOrigins;
+const allowedOrigins = getAllowedOrigins();
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin, allowedOrigins)) {
       return callback(null, true);
     }
     const error = new Error('Not allowed by CORS');

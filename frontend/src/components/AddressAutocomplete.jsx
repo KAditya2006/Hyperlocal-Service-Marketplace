@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Loader2, Search } from 'lucide-react';
 import { searchLocations } from '../services/api';
 
-const AddressAutocomplete = ({ value, onChange, placeholder = "Enter your location", className = "" }) => {
+const AddressAutocomplete = ({ value, onChange, placeholder = "Enter your location", className = "", required = false }) => {
   const [query, setQuery] = useState(value || '');
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -87,11 +87,11 @@ const AddressAutocomplete = ({ value, onChange, placeholder = "Enter your locati
           onChange={handleInputChange}
           onFocus={() => query.length >= 3 && setShowDropdown(true)}
           onBlur={() => {
-            if (onChange) onChange({ address: query, coordinates: null });
             // Small delay to allow clicking suggestions before hiding
             setTimeout(() => setShowDropdown(false), 200);
           }}
           placeholder={placeholder}
+          required={required}
           className="w-full bg-white border border-slate-200 pl-12 pr-12 py-3.5 rounded-xl outline-none focus:border-primary-500 transition-colors font-medium"
         />
         <div className="absolute right-4 top-1/2 -translate-y-1/2">

@@ -1,12 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { approveWorker, getAdminBookings, getAdminStats, getAdminUsers, getAdminWorkers, getAuditLogs, getPendingWorkers } from '../services/api';
+import { approveWorker, createAdminUser, createAdminWorker, deleteAdminUser, deleteAdminWorker, getAdminBookings, getAdminStats, getAdminUsers, getAdminWorkers, getAuditLogs, getPendingWorkers } from '../services/api';
 import Navbar from '../components/Navbar';
-import { ShieldAlert, Users, CheckCircle, XCircle, Eye, Search, TrendingUp, Clock, Briefcase, CalendarDays } from 'lucide-react';
+import { ShieldAlert, Users, CheckCircle, XCircle, Eye, Search, TrendingUp, Clock, Briefcase, CalendarDays, Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
 import { formatInr } from '../utils/formatters';
+import { PROFESSIONS } from '../constants/professions';
 
 const LIST_TABS = ['users', 'workers', 'bookings'];
+
+const EMPTY_MANAGED_ACCOUNT_FORM = {
+  name: '',
+  email: '',
+  password: '',
+  phone: '',
+  address: '',
+  city: '',
+  pincode: '',
+  skills: '',
+  experience: '0',
+  bio: '',
+  amount: '',
+  unit: 'hour'
+};
 
 const getStatusBadgeClass = (status) => {
   const styles = {
@@ -52,6 +68,9 @@ const AdminDashboard = () => {
     workers: { page: 1, pages: 1 },
     bookings: { page: 1, pages: 1 }
   });
+  const [createModal, setCreateModal] = useState(null);
+  const [createForm, setCreateForm] = useState(EMPTY_MANAGED_ACCOUNT_FORM);
+  const [creatingAccount, setCreatingAccount] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -118,6 +137,58 @@ const AdminDashboard = () => {
   const openDirectory = (tab) => {
     setDirectorySearch('');
     setActiveTab(tab);
+  };
+
+  const openCreateModal = (tab) => {
+    setCreateModal(tab);
+    setCreateForm(EMPTY_MANAGED_ACCOUNT_FORM);
+  };
+
+  const handleCreateSubmit = async (event) => {
+    event.preventDefault();
+    if (!createModal) return;
+
+    setCreatingAccount(true);
+    try {
+      const payload = {
+        ...createForm,
+        skills: createForm.skills,
+        experience: Number(createForm.experience) || 0,
+        amount: Number(createForm.amount) || 0
+      };
+
+      const { data } = createModal === 'users'
+        ? await createAdminUser(payload)
+        : await createAdminWorker(payload);
+
+      toast.success(data.message);
+      setCreateModal(null);
+      setCreateForm(EMPTY_MANAGED_ACCOUNT_FORM);
+      await fetchData();
+      await fetchDirectory(createModal, 1, '');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not add account');
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
+
+  const handleDeleteAccount = async ({ tab, id, name }) => {
+    const label = tab === 'users' ? 'user' : 'worker';
+    const confirmed = window.confirm(`Delete ${name || `this ${label}`}? This cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      const { data } = tab === 'users'
+        ? await deleteAdminUser(id)
+        : await deleteAdminWorker(id);
+
+      toast.success(data.message);
+      await fetchData();
+      await fetchDirectory(tab, directoryPagination[tab]?.page || 1, directorySearch);
+    } catch (error) {
+      toast.error(error.response?.data?.message || `Could not delete ${label}`);
+    }
   };
 
   const handleApproval = async (workerId, status) => {
@@ -274,6 +345,8 @@ const AdminDashboard = () => {
               fetchDirectory(activeTab, 1, directorySearch);
             }}
             onPageChange={(page) => fetchDirectory(activeTab, page, directorySearch)}
+            onCreate={() => openCreateModal(activeTab)}
+            onDelete={handleDeleteAccount}
           />
         )}
 
@@ -360,12 +433,23 @@ const AdminDashboard = () => {
              </div>
           </div>
         )}
+
+        {createModal && (
+          <ManagedAccountModal
+            type={createModal}
+            form={createForm}
+            setForm={setCreateForm}
+            saving={creatingAccount}
+            onSubmit={handleCreateSubmit}
+            onClose={() => setCreateModal(null)}
+          />
+        )}
       </div>
     </div>
   );
 };
 
-const AdminDirectory = ({ activeTab, data, loading, pagination, searchTerm, setSearchTerm, onSearch, onPageChange }) => {
+const AdminDirectory = ({ activeTab, data, loading, pagination, searchTerm, setSearchTerm, onSearch, onPageChange, onCreate, onDelete }) => {
   const titles = {
     users: 'Registered Users',
     workers: 'Registered Workers',
@@ -384,25 +468,36 @@ const AdminDirectory = ({ activeTab, data, loading, pagination, searchTerm, setS
           <h3 className="text-2xl font-bold text-slate-900 font-heading">{titles[activeTab]}</h3>
           <p className="text-sm font-medium text-slate-500">Click a count card or tab to inspect the matching records.</p>
         </div>
-        <form onSubmit={onSearch} className="relative w-full md:w-auto">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder={placeholders[activeTab]}
-            className="w-full md:w-96 bg-slate-50 border border-slate-100 pl-11 pr-4 py-3 rounded-2xl outline-none focus:border-primary-500 focus:bg-white transition-all text-sm font-medium"
-          />
-        </form>
+        <div className="flex w-full md:w-auto flex-col sm:flex-row gap-3">
+          {activeTab !== 'bookings' && (
+            <button
+              type="button"
+              onClick={onCreate}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-600 px-5 py-3 text-sm font-bold text-white hover:bg-primary-700"
+            >
+              <Plus size={18} /> Add {activeTab === 'users' ? 'User' : 'Worker'}
+            </button>
+          )}
+          <form onSubmit={onSearch} className="relative w-full md:w-auto">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder={placeholders[activeTab]}
+              className="w-full md:w-96 bg-slate-50 border border-slate-100 pl-11 pr-4 py-3 rounded-2xl outline-none focus:border-primary-500 focus:bg-white transition-all text-sm font-medium"
+            />
+          </form>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
         {loading ? (
           <div className="px-8 py-20 text-center text-slate-400 font-bold">Loading records...</div>
         ) : activeTab === 'users' ? (
-          <UsersTable users={data} />
+          <UsersTable users={data} onDelete={onDelete} />
         ) : activeTab === 'workers' ? (
-          <WorkersTable workers={data} />
+          <WorkersTable workers={data} onDelete={onDelete} />
         ) : (
           <BookingsTable bookings={data} />
         )}
@@ -419,7 +514,7 @@ const AdminDirectory = ({ activeTab, data, loading, pagination, searchTerm, setS
   );
 };
 
-const UsersTable = ({ users }) => (
+const UsersTable = ({ users, onDelete }) => (
   <table className="w-full text-left">
     <thead>
       <tr className="bg-slate-50/50 text-slate-400 text-[11px] uppercase tracking-[0.2em] font-bold">
@@ -428,6 +523,7 @@ const UsersTable = ({ users }) => (
         <th className="px-8 py-5">Verification</th>
         <th className="px-8 py-5">Location</th>
         <th className="px-8 py-5">Joined</th>
+        <th className="px-8 py-5 text-right">Actions</th>
       </tr>
     </thead>
     <tbody className="divide-y divide-slate-50">
@@ -451,15 +547,24 @@ const UsersTable = ({ users }) => (
           </td>
           <td className="px-8 py-6 text-sm font-medium text-slate-500 max-w-xs break-words">{user.location?.address || user.location?.city || 'Not added'}</td>
           <td className="px-8 py-6 text-sm font-bold text-slate-500">{new Date(user.createdAt).toLocaleDateString()}</td>
+          <td className="px-8 py-6 text-right">
+            <button
+              type="button"
+              onClick={() => onDelete({ tab: 'users', id: user._id, name: user.name })}
+              className="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-600 hover:text-white"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          </td>
         </tr>
       )) : (
-        <EmptyTable colSpan={5} message="No users found." />
+        <EmptyTable colSpan={6} message="No users found." />
       )}
     </tbody>
   </table>
 );
 
-const WorkersTable = ({ workers }) => (
+const WorkersTable = ({ workers, onDelete }) => (
   <table className="w-full text-left">
     <thead>
       <tr className="bg-slate-50/50 text-slate-400 text-[11px] uppercase tracking-[0.2em] font-bold">
@@ -468,6 +573,7 @@ const WorkersTable = ({ workers }) => (
         <th className="px-8 py-5">Status</th>
         <th className="px-8 py-5">Availability</th>
         <th className="px-8 py-5">Rating</th>
+        <th className="px-8 py-5 text-right">Actions</th>
       </tr>
     </thead>
     <tbody className="divide-y divide-slate-50">
@@ -492,9 +598,18 @@ const WorkersTable = ({ workers }) => (
           <td className="px-8 py-6"><StatusBadge status={worker.approvalStatus}>{worker.approvalStatus}</StatusBadge></td>
           <td className="px-8 py-6"><StatusBadge status={worker.availabilityStatus}>{worker.availabilityStatus || 'Available'}</StatusBadge></td>
           <td className="px-8 py-6 text-sm font-bold text-slate-600">{worker.averageRating?.toFixed(1) || '0.0'} ({worker.totalReviews || 0})</td>
+          <td className="px-8 py-6 text-right">
+            <button
+              type="button"
+              onClick={() => onDelete({ tab: 'workers', id: worker._id, name: worker.user?.name })}
+              className="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-600 hover:text-white"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          </td>
         </tr>
       )) : (
-        <EmptyTable colSpan={5} message="No workers found." />
+        <EmptyTable colSpan={6} message="No workers found." />
       )}
     </tbody>
   </table>
@@ -546,6 +661,58 @@ const EmptyTable = ({ colSpan, message }) => (
     <td colSpan={colSpan} className="px-8 py-20 text-center text-slate-300 font-bold italic">{message}</td>
   </tr>
 );
+
+const ManagedAccountModal = ({ type, form, setForm, saving, onSubmit, onClose }) => {
+  const isWorker = type === 'workers';
+  const updateField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+
+  return (
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 p-3 sm:p-6 backdrop-blur-sm">
+      <form onSubmit={onSubmit} className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white premium-shadow">
+        <div className="flex items-center justify-between gap-4 border-b border-slate-50 p-4 sm:p-8">
+          <div>
+            <h3 className="text-2xl font-bold font-heading text-slate-900">Add {isWorker ? 'Worker' : 'User'}</h3>
+            <p className="text-sm font-medium text-slate-500">Admin-created accounts are email verified and admin approved by default.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-50">
+            <XCircle size={24} />
+          </button>
+        </div>
+
+        <div className="grid gap-4 overflow-y-auto p-4 sm:grid-cols-2 sm:p-8">
+          <input required value={form.name} onChange={(event) => updateField('name', event.target.value)} placeholder="Full name" className="rounded-2xl bg-slate-50 px-4 py-3 outline-none" />
+          <input required type="email" value={form.email} onChange={(event) => updateField('email', event.target.value)} placeholder="Email" className="rounded-2xl bg-slate-50 px-4 py-3 outline-none" />
+          <input required minLength={6} type="password" value={form.password} onChange={(event) => updateField('password', event.target.value)} placeholder="Temporary password" className="rounded-2xl bg-slate-50 px-4 py-3 outline-none" />
+          <input value={form.phone} onChange={(event) => updateField('phone', event.target.value)} placeholder="Phone" className="rounded-2xl bg-slate-50 px-4 py-3 outline-none" />
+          <input value={form.address} onChange={(event) => updateField('address', event.target.value)} placeholder="Address" className="rounded-2xl bg-slate-50 px-4 py-3 outline-none sm:col-span-2" />
+          <input value={form.city} onChange={(event) => updateField('city', event.target.value)} placeholder="City" className="rounded-2xl bg-slate-50 px-4 py-3 outline-none" />
+          <input value={form.pincode} onChange={(event) => updateField('pincode', event.target.value)} placeholder="Pincode" className="rounded-2xl bg-slate-50 px-4 py-3 outline-none" />
+
+          {isWorker && (
+            <>
+              <input required value={form.skills} onChange={(event) => updateField('skills', event.target.value)} placeholder={`Skills, e.g. ${PROFESSIONS.slice(0, 3).join(', ')}`} className="rounded-2xl bg-slate-50 px-4 py-3 outline-none sm:col-span-2" />
+              <input type="number" min="0" value={form.experience} onChange={(event) => updateField('experience', event.target.value)} placeholder="Experience in years" className="rounded-2xl bg-slate-50 px-4 py-3 outline-none" />
+              <input type="number" min="0" value={form.amount} onChange={(event) => updateField('amount', event.target.value)} placeholder="Price amount" className="rounded-2xl bg-slate-50 px-4 py-3 outline-none" />
+              <select value={form.unit} onChange={(event) => updateField('unit', event.target.value)} className="rounded-2xl bg-slate-50 px-4 py-3 outline-none">
+                <option value="hour">Per hour</option>
+                <option value="day">Per day</option>
+                <option value="job">Per job</option>
+              </select>
+              <textarea required value={form.bio} onChange={(event) => updateField('bio', event.target.value)} placeholder="Worker bio" className="h-28 rounded-2xl bg-slate-50 px-4 py-3 outline-none sm:col-span-2" />
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-slate-50 bg-slate-50/60 p-4 sm:flex-row sm:p-8">
+          <button type="button" onClick={onClose} className="flex-1 rounded-2xl border border-slate-200 py-3 font-bold text-slate-600">Cancel</button>
+          <button disabled={saving} className="flex-1 rounded-2xl bg-primary-600 py-3 font-bold text-white hover:bg-primary-700 disabled:opacity-50">
+            {saving ? 'Saving...' : `Add ${isWorker ? 'Worker' : 'User'}`}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
 
 const StatCard = ({ icon, label, value, change, color, onClick }) => (
   <button type="button" onClick={onClick} className="bg-white p-5 sm:p-8 rounded-3xl md:rounded-[40px] premium-shadow border border-slate-100 text-left transition-all hover:-translate-y-1 hover:border-primary-100">

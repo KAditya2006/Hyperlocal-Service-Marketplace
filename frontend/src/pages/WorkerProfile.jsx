@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import ServiceAddressInput from '../components/ServiceAddressInput';
 import { createBooking, getWorkerDetails, initiateChat } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { CalendarDays, MapPin, MessageSquare, Star } from 'lucide-react';
@@ -17,7 +18,7 @@ const WorkerProfile = () => {
   const { token, user } = useAuth();
   const [worker, setWorker] = useState(null);
   const [reviews, setReviews] = useState([]);
-  const [booking, setBooking] = useState({ service: '', scheduledDate: '', address: '', additionalNotes: '' });
+  const [booking, setBooking] = useState({ service: '', scheduledDate: '', address: '', additionalNotes: '', coordinates: null });
 
   useEffect(() => {
     const fetchWorker = async () => {
@@ -59,10 +60,16 @@ const WorkerProfile = () => {
         service: booking.service || worker.skills?.[0] || 'General service',
         scheduledDate: booking.scheduledDate,
         address: booking.address,
+        ...(booking.coordinates ? {
+          serviceLocation: {
+            coordinates: booking.coordinates,
+            address: booking.address
+          }
+        } : {}),
         additionalNotes: booking.additionalNotes
       });
       toast.success('Booking request sent');
-      setBooking({ service: worker.skills?.[0] || '', scheduledDate: '', address: '', additionalNotes: '' });
+      setBooking({ service: worker.skills?.[0] || '', scheduledDate: '', address: '', additionalNotes: '', coordinates: null });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not create booking');
     }
@@ -126,7 +133,10 @@ const WorkerProfile = () => {
             <h2 className="text-xl font-bold font-heading text-slate-900">Book this worker</h2>
             <input required value={booking.service} onChange={(e) => setBooking({ ...booking, service: e.target.value })} placeholder="Service" className="w-full bg-slate-50 rounded-2xl px-4 py-3 outline-none" />
             <input required value={booking.scheduledDate} onChange={(e) => setBooking({ ...booking, scheduledDate: e.target.value })} type="datetime-local" className="w-full bg-slate-50 rounded-2xl px-4 py-3 outline-none" />
-            <input required value={booking.address} onChange={(e) => setBooking({ ...booking, address: e.target.value })} placeholder="Service address" className="w-full bg-slate-50 rounded-2xl px-4 py-3 outline-none" />
+            <ServiceAddressInput
+              value={booking.address}
+              onChange={({ address, coordinates }) => setBooking({ ...booking, address, coordinates })}
+            />
             <textarea value={booking.additionalNotes} onChange={(e) => setBooking({ ...booking, additionalNotes: e.target.value })} placeholder="Notes" className="w-full h-24 bg-slate-50 rounded-2xl px-4 py-3 outline-none" />
             <button
               disabled={!isAvailable}

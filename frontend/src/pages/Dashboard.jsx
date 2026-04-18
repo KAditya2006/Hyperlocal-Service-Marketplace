@@ -31,6 +31,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { formatInr } from '../utils/formatters';
 import { CATEGORY_METADATA, PROFESSIONS } from '../constants/professions';
+import { getBookingDestination } from '../utils/location';
 
 const ICON_MAP = {
   BookOpen,
@@ -238,6 +239,7 @@ const Dashboard = () => {
             </div>
           ) : bookings.map((booking) => {
             const otherPerson = user?.role === 'worker' ? booking.user : booking.worker;
+            const destinationLocation = getBookingDestination(booking, user);
             return (
               <article
                 key={booking._id}
@@ -264,7 +266,7 @@ const Dashboard = () => {
                   </p>
                   {booking.additionalNotes && <p className="text-slate-600">{booking.additionalNotes}</p>}
 
-                  {(booking.status === 'accepted' || booking.status === 'in_progress') && user?.location?.coordinates && (
+                  {(booking.status === 'accepted' || booking.status === 'in_progress') && destinationLocation && (
                     <div className="mt-4" onClick={(event) => event.stopPropagation()}>
                       <div className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-900">
                         <MapPin size={16} className="text-primary-600" />
@@ -272,7 +274,9 @@ const Dashboard = () => {
                       </div>
                       <TrackingMap
                         bookingId={booking._id}
-                        userLocation={[user.location.coordinates[1], user.location.coordinates[0]]}
+                        destinationLocation={destinationLocation}
+                        destinationAddress={booking.address}
+                        destinationLabel="Service Destination"
                       />
                     </div>
                   )}

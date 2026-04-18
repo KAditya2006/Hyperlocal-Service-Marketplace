@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { getBookings, getWorkerProfile, initiateChat, updateBookingStatus, updateWorkerProfile, uploadKYC, verifyCompletionOTP } from '../services/api';
 import Navbar from '../components/Navbar';
 import BookingDetailsModal from '../components/BookingDetailsModal';
-import { LayoutDashboard, FileCheck, DollarSign, Briefcase, Star, Clock, AlertCircle, CheckCircle2, Upload, User as UserIcon, XCircle, Key, MessageSquare } from 'lucide-react';
+import TrackingMap from '../components/TrackingMap';
+import { LayoutDashboard, FileCheck, DollarSign, Briefcase, Star, Clock, AlertCircle, CheckCircle2, Upload, User as UserIcon, XCircle, Key, MessageSquare, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { formatInr } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
+import { getBookingDestination } from '../utils/location';
 
 const WorkerDashboard = () => {
   const [profile, setProfile] = useState(null);
@@ -355,12 +357,17 @@ const WorkerDashboard = () => {
             <div className="space-y-4">
               {bookings.length === 0 ? (
                 <p className="text-slate-400 font-bold italic">No assigned jobs yet.</p>
-              ) : bookings.map((booking) => (
+              ) : bookings.map((booking) => {
+                const destinationLocation = getBookingDestination(booking);
+                const canTrackDestination = ['accepted', 'in_progress'].includes(booking.status);
+
+                return (
                 <div
                   key={booking._id}
                   onClick={() => setSelectedBooking(booking)}
-                  className="border border-slate-100 rounded-3xl p-4 sm:p-5 flex flex-col md:flex-row gap-4 md:items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
+                  className="border border-slate-100 rounded-3xl p-4 sm:p-5 flex flex-col gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
                 >
+                  <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
                   <div>
                     <p className="font-bold text-slate-900">{booking.service}</p>
                     <p className="text-sm text-slate-500">{booking.user?.name} - {format(new Date(booking.scheduledDate), 'PPp')}</p>
@@ -404,8 +411,26 @@ const WorkerDashboard = () => {
                       </div>
                     )}
                   </div>
+                  </div>
+                  {canTrackDestination && (
+                    <div className="mt-2" onClick={(event) => event.stopPropagation()}>
+                      <div className="flex items-center gap-2 mb-2 text-sm font-bold text-slate-900">
+                        <MapPin size={16} className="text-primary-600" />
+                        <span>Customer Service Location</span>
+                      </div>
+                      <TrackingMap
+                        bookingId={booking._id}
+                        destinationLocation={destinationLocation}
+                        destinationAddress={booking.address}
+                        destinationLabel="Customer Destination"
+                        viewerRole="worker"
+                        shareWorkerLocation={Boolean(destinationLocation)}
+                      />
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
               {jobsPagination.pages > 1 && (
                 <div className="flex flex-wrap justify-center gap-3 pt-4">
                   <button disabled={jobsPagination.page <= 1} onClick={() => fetchBookings(jobsPagination.page - 1)} className="px-5 py-3 bg-white border border-slate-100 rounded-xl font-bold disabled:opacity-40">Previous</button>

@@ -42,7 +42,17 @@ const RecenterMap = ({ center }) => {
   return null;
 };
 
-const TrackingMap = ({ bookingId, userLocation, initialWorkerLocation }) => {
+const TrackingMap = ({
+  bookingId,
+  userLocation,
+  destinationLocation,
+  destinationAddress,
+  destinationLabel = 'Service Destination',
+  initialWorkerLocation,
+  shareWorkerLocation = false,
+  viewerRole = 'user'
+}) => {
+  const destinationPos = destinationLocation || userLocation;
   const [workerPos, setWorkerPos] = useState(initialWorkerLocation || [0, 0]);
   const socketRef = useRef(null);
 
@@ -69,36 +79,87 @@ const TrackingMap = ({ bookingId, userLocation, initialWorkerLocation }) => {
     };
   }, [bookingId]);
 
-  const center = workerPos[0] !== 0 ? workerPos : userLocation;
+  useEffect(() => {
+    if (!shareWorkerLocation || !bookingId || !navigator.geolocation) return undefined;
+
+    const watcherId = navigator.geolocation.watchPosition(
+      (position) => {
+        const coordinates = [position.coords.longitude, position.coords.latitude];
+        setWorkerPos([position.coords.latitude, position.coords.longitude]);
+        socketRef.current?.emit('update_worker_location', {
+          bookingId,
+          coordinates
+        });
+      },
+      () => {},
+      {
+        enableHighAccuracy: true,
+        maximumAge: 15000,
+        timeout: 10000
+      }
+    );
+
+    return () => navigator.geolocation.clearWatch(watcherId);
+  }, [bookingId, shareWorkerLocation]);
+
+  const hasWorkerPosition = workerPos[0] !== 0 && workerPos[1] !== 0;
+  const center = viewerRole === 'worker'
+    ? (hasWorkerPosition ? workerPos : destinationPos)
+    : (hasWorkerPosition ? workerPos : destinationPos);
+
+  if (!destinationPos) {
+    const googleSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destinationAddress || destinationLabel)}`;
+    return (
+      <div className="rounded-[32px] border border-slate-100 bg-slate-50 p-4">
+        <p className="text-sm font-bold text-slate-900">{destinationLabel}</p>
+        <p className="mt-1 text-sm font-medium text-slate-500 break-words">{destinationAddress || 'Address coordinates are not available.'}</p>
+        {destinationAddress && (
+          <a
+            href={googleSearchUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-flex rounded-xl bg-white px-4 py-2 text-xs font-bold text-slate-700 border border-slate-200"
+          >
+            Open address in Google Maps
+          </a>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full h-[400px] rounded-[32px] overflow-hidden border border-slate-100 premium-shadow">
+    <div className="relative w-full h-[400px] rounded-[32px] overflow-hidden border border-slate-100 premium-shadow">
       <MapContainer center={center} zoom={15} className="w-full h-full">
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-        <Marker position={userLocation} icon={userIcon}>
-          <Popup>User Destination</Popup>
+        <Marker position={destinationPos} icon={userIcon}>
+          <Popup>
+            <div>
+              <strong>{destinationLabel}</strong>
+              {destinationAddress && <p>{destinationAddress}</p>}
+            </div>
+          </Popup>
         </Marker>
-        {workerPos[0] !== 0 && (
+        {hasWorkerPosition && (
           <>
             <Marker position={workerPos} icon={workerIcon}>
-              <Popup>Worker Live Location</Popup>
+              <Popup>{viewerRole === 'worker' ? 'Your Live Location' : 'Worker Live Location'}</Popup>
             </Marker>
-            <Polyline positions={[workerPos, userLocation]} color="#6366f1" weight={3} dashArray="10, 10" />
+            <Polyline positions={[workerPos, destinationPos]} color="#6366f1" weight={3} dashArray="10, 10" />
             <RecenterMap center={workerPos} />
           </>
         )}
       </MapContainer>
       <div className="absolute bottom-4 left-4 right-4 z-[1000] flex gap-2">
          <a 
-           href={`https://www.google.com/maps/dir/?api=1&destination=${userLocation[0]},${userLocation[1]}`}
+           href={`https://www.google.com/maps/dir/?api=1&destination=${destinationPos[0]},${destinationPos[1]}`}
            target="_blank"
            rel="noreferrer"
            className="flex-1 bg-white px-4 py-2 rounded-xl border border-slate-200 font-bold text-slate-700 text-xs text-center shadow-lg flex items-center justify-center gap-2"
          >
-           Open in Google Maps
+           Directions in Google Maps
          </a>
       </div>
     </div>

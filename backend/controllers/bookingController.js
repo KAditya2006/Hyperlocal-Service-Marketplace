@@ -11,8 +11,8 @@ const { syncDynamicWorkerProfile } = require('../utils/syncWorkerProfile');
 
 const populateBooking = (query) => {
   return query
-    .populate('user', 'name email avatar phone')
-    .populate('worker', 'name email avatar phone');
+    .populate('user', 'name email avatar phone location')
+    .populate('worker', 'name email avatar phone location');
 };
 
 const getId = (value) => {
@@ -33,6 +33,15 @@ const parseFutureScheduledDate = (value) => {
   if (Number.isNaN(date.getTime())) return null;
   if (date.getTime() <= Date.now()) return null;
   return date;
+};
+
+const normalizeCoordinates = (coordinates) => {
+  if (!Array.isArray(coordinates) || coordinates.length < 2) return null;
+  const [lng, lat] = coordinates.map(Number);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat === 0 && lng === 0) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return [lng, lat];
 };
 
 const sanitizeBookingForViewer = (booking, viewer) => {
@@ -93,7 +102,7 @@ const attachContactDetails = async (bookings) => {
 };
 
 exports.createBooking = asyncHandler(async (req, res) => {
-  const { workerId, service, scheduledDate, address, additionalNotes } = req.body;
+  const { workerId, service, scheduledDate, address, additionalNotes, serviceLocation, coordinates } = req.body;
 
   if (!workerId || !service || !scheduledDate || !address) {
     return res.status(400).json({ success: false, message: 'Worker, service, date, and address are required' });
@@ -126,7 +135,10 @@ exports.createBooking = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Worker is not available for bookings' });
   }
 
-  const booking = await Booking.create({
+  const serviceCoordinates = normalizeCoordinates(
+    serviceLocation?.coordinates || coordinates
+  );
+  const bookingPayload = {
     user: req.user.id,
     worker: workerId,
     service,
@@ -134,7 +146,17 @@ exports.createBooking = asyncHandler(async (req, res) => {
     address,
     additionalNotes,
     totalPrice: calculateBookingPrice(profile)
-  });
+  };
+
+  if (serviceCoordinates) {
+    bookingPayload.serviceLocation = {
+      type: 'Point',
+      coordinates: serviceCoordinates,
+      address
+    };
+  }
+
+  const booking = await Booking.create(bookingPayload);
 
   await AuditLog.create({
     actor: req.user.id,

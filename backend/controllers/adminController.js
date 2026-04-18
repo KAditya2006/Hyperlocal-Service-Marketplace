@@ -2,10 +2,78 @@ const User = require('../models/User');
 const WorkerProfile = require('../models/WorkerProfile');
 const Booking = require('../models/Booking');
 const AuditLog = require('../models/AuditLog');
+const Chat = require('../models/Chat');
+const Message = require('../models/Message');
+const Notification = require('../models/Notification');
+const OTP = require('../models/OTP');
+const PasswordReset = require('../models/PasswordReset');
+const PushSubscription = require('../models/PushSubscription');
+const Review = require('../models/Review');
 const createNotification = require('../utils/createNotification');
 const { getPagination } = require('../utils/bookingRules');
 const escapeRegex = require('../utils/escapeRegex');
 const { syncDynamicWorkerProfile } = require('../utils/syncWorkerProfile');
+
+const ACTIVE_BOOKING_STATUSES = ['pending', 'accepted', 'in_progress'];
+
+const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+
+const normalizeSkills = (skills) => {
+  if (Array.isArray(skills)) {
+    return skills.map((skill) => String(skill).trim()).filter(Boolean);
+  }
+
+  return String(skills || '')
+    .split(',')
+    .map((skill) => skill.trim())
+    .filter(Boolean);
+};
+
+const getLocationPayload = ({ address, city, pincode }) => ({
+  type: 'Point',
+  coordinates: [0, 0],
+  address: String(address || '').trim(),
+  city: String(city || '').trim(),
+  pincode: String(pincode || '').trim()
+});
+
+const hasActiveBookings = (userId) => {
+  return Booking.exists({
+    status: { $in: ACTIVE_BOOKING_STATUSES },
+    $or: [
+      { user: userId },
+      { worker: userId }
+    ]
+  });
+};
+
+const deleteAccountData = async (userId) => {
+  const chats = await Chat.find({ participants: userId }).select('_id').lean();
+  const chatIds = chats.map((chat) => chat._id);
+
+  await Promise.all([
+    Message.deleteMany({
+      $or: [
+        { sender: userId },
+        { chatId: { $in: chatIds } }
+      ]
+    }),
+    Chat.deleteMany({ _id: { $in: chatIds } }),
+    Notification.deleteMany({ user: userId }),
+    OTP.deleteMany({ user: userId }),
+    PasswordReset.deleteMany({ user: userId }),
+    PushSubscription.deleteMany({ user: userId }),
+    Review.deleteMany({
+      $or: [
+        { user: userId },
+        { worker: userId }
+      ]
+    }),
+    WorkerProfile.deleteOne({ user: userId })
+  ]);
+
+  await User.deleteOne({ _id: userId });
+};
 
 exports.getDashboardStats = async (req, res, next) => {
   try {
@@ -188,6 +256,199 @@ exports.getBookings = async (req, res, next) => {
       data: bookings,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createUser = async (req, res, next) => {
+  try {
+    const { name, email, password, phone, address, city, pincode } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, message: 'Name, email, and password are required' });
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    const existingUser = await User.findOne({ email: normalizedEmail }).select('_id').lean();
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: 'A user with this email already exists' });
+    }
+
+    const user = await User.create({
+      name: String(name).trim(),
+      email: normalizedEmail,
+      password,
+      role: 'user',
+      phone: String(phone || '').trim(),
+      isVerified: true,
+      isAdminApproved: true,
+      kyc: { status: 'verified' },
+      location: getLocationPayload({ address, city, pincode })
+    });
+
+    await AuditLog.create({
+      actor: req.user.id,
+      action: 'user.created',
+      entityType: 'User',
+      entityId: user._id,
+      details: { createdByAdmin: true }
+    });
+
+    const safeUser = user.toObject();
+    delete safeUser.password;
+
+    res.status(201).json({ success: true, message: 'User added successfully', data: safeUser });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.createWorker = async (req, res, next) => {
+  try {
+    const {
+      name,
+      email,
+      password,
+      phone,
+      address,
+      city,
+      pincode,
+      skills,
+      experience,
+      bio,
+      amount,
+      unit = 'hour'
+    } = req.body;
+    const workerSkills = normalizeSkills(skills);
+
+    if (!name || !email || !password || workerSkills.length === 0 || !bio) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, email, password, skills, and bio are required'
+      });
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    const existingUser = await User.findOne({ email: normalizedEmail }).select('_id').lean();
+    if (existingUser) {
+      return res.status(409).json({ success: false, message: 'A user with this email already exists' });
+    }
+
+    const user = await User.create({
+      name: String(name).trim(),
+      email: normalizedEmail,
+      password,
+      role: 'worker',
+      phone: String(phone || '').trim(),
+      isVerified: true,
+      isAdminApproved: true,
+      kyc: { status: 'verified' },
+      location: getLocationPayload({ address, city, pincode })
+    });
+
+    const worker = await WorkerProfile.create({
+      user: user._id,
+      skills: workerSkills,
+      experience: Number(experience) || 0,
+      bio: String(bio).trim(),
+      pricing: {
+        amount: Number(amount) || 0,
+        unit: ['hour', 'day', 'job'].includes(unit) ? unit : 'hour'
+      },
+      availabilityStatus: 'Available',
+      approvalStatus: 'approved',
+      kyc: { status: 'verified' }
+    });
+
+    await AuditLog.create({
+      actor: req.user.id,
+      action: 'worker.created',
+      entityType: 'WorkerProfile',
+      entityId: worker._id,
+      details: { user: user._id, createdByAdmin: true }
+    });
+
+    const populatedWorker = await WorkerProfile.findById(worker._id)
+      .populate('user', 'name email phone avatar location isVerified isAdminApproved createdAt')
+      .lean();
+
+    res.status(201).json({ success: true, message: 'Worker added successfully', data: populatedWorker });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    if (userId === req.user.id.toString()) {
+      return res.status(400).json({ success: false, message: 'You cannot delete your own admin account' });
+    }
+
+    const user = await User.findOne({ _id: userId, role: 'user' }).lean();
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    if (await hasActiveBookings(user._id)) {
+      return res.status(409).json({
+        success: false,
+        message: 'This user has an active booking. Complete or cancel active bookings before deleting.'
+      });
+    }
+
+    await deleteAccountData(user._id);
+
+    await AuditLog.create({
+      actor: req.user.id,
+      action: 'user.deleted',
+      entityType: 'User',
+      entityId: user._id,
+      details: { email: user.email }
+    });
+
+    res.status(200).json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteWorker = async (req, res, next) => {
+  try {
+    const { workerId } = req.params;
+    let workerProfile = await WorkerProfile.findById(workerId).lean();
+    if (!workerProfile) {
+      workerProfile = await WorkerProfile.findOne({ user: workerId }).lean();
+    }
+
+    if (!workerProfile) {
+      return res.status(404).json({ success: false, message: 'Worker not found' });
+    }
+
+    const workerUser = await User.findOne({ _id: workerProfile.user, role: 'worker' }).lean();
+    if (!workerUser) {
+      return res.status(404).json({ success: false, message: 'Worker account not found' });
+    }
+
+    if (await hasActiveBookings(workerUser._id)) {
+      return res.status(409).json({
+        success: false,
+        message: 'This worker has an active booking. Complete or cancel active bookings before deleting.'
+      });
+    }
+
+    await deleteAccountData(workerUser._id);
+
+    await AuditLog.create({
+      actor: req.user.id,
+      action: 'worker.deleted',
+      entityType: 'WorkerProfile',
+      entityId: workerProfile._id,
+      details: { user: workerUser._id, email: workerUser.email }
+    });
+
+    res.status(200).json({ success: true, message: 'Worker deleted successfully' });
   } catch (error) {
     next(error);
   }

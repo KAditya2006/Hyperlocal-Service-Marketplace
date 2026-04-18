@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import ServiceAddressInput from '../components/ServiceAddressInput';
 import { createBooking, initiateChat, searchWorkers } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { CalendarDays, MapPin, MessageSquare, Search as SearchIcon, Star } from 'lucide-react';
@@ -11,6 +12,7 @@ import { getOnboardingMessage } from '../utils/onboarding';
 import { getUserPresenceClass, getUserPresenceStatus } from '../utils/presence';
 import { getWorkerAvailabilityClass, getWorkerAvailabilityStatus } from '../utils/workerAvailability';
 import { PROFESSIONS, SERVICE_ALIASES } from '../constants/professions';
+import { getStoredUserCoordinates } from '../utils/location';
 
 const SERVICE_LABELS = {
   'ac repair/service': 'AC Repair / Service',
@@ -86,7 +88,7 @@ const SearchPage = () => {
   const [pagination, setPagination] = useState({ page: 1, pages: 1 });
   const [loading, setLoading] = useState(true);
   const [selectedWorker, setSelectedWorker] = useState(null);
-  const [booking, setBooking] = useState({ service: initialQuery, scheduledDate: '', address: '', additionalNotes: '' });
+  const [booking, setBooking] = useState({ service: initialQuery, scheduledDate: '', address: '', additionalNotes: '', coordinates: null });
   const searchedService = filters.service.trim();
   const searchedServiceIsListed = isListedService(searchedService);
   const suggestedServices = getSuggestedServices(searchedService);
@@ -155,11 +157,17 @@ const SearchPage = () => {
         service: booking.service || workerSkills[0] || 'General service',
         scheduledDate: booking.scheduledDate,
         address: booking.address,
+        ...(booking.coordinates ? {
+          serviceLocation: {
+            coordinates: booking.coordinates,
+            address: booking.address
+          }
+        } : {}),
         additionalNotes: booking.additionalNotes
       });
       toast.success('Booking request sent');
       setSelectedWorker(null);
-      setBooking({ service: filters.service, scheduledDate: '', address: getDefaultAddress(), additionalNotes: '' });
+      setBooking({ service: filters.service, scheduledDate: '', address: getDefaultAddress(), additionalNotes: '', coordinates: getDefaultCoordinates() });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not create booking');
     }
@@ -187,13 +195,16 @@ const SearchPage = () => {
     setBooking((current) => ({
       ...current,
       service: filters.service || workerSkills[0] || '',
-      address: current.address || getDefaultAddress()
+      address: current.address || getDefaultAddress(),
+      coordinates: current.coordinates || getDefaultCoordinates()
     }));
   };
 
   const getDefaultAddress = () => {
     return [user?.location?.homeNumber, user?.location?.address].filter(Boolean).join(', ');
   };
+
+  const getDefaultCoordinates = () => getStoredUserCoordinates(user);
 
   const searchService = (service) => {
     navigate(`/search?q=${encodeURIComponent(service)}`);
@@ -353,7 +364,10 @@ const SearchPage = () => {
             </div>
             <input required value={booking.service} onChange={(e) => setBooking({ ...booking, service: e.target.value })} placeholder="Service" className="w-full bg-slate-50 rounded-2xl px-4 py-4 outline-none" />
             <input required value={booking.scheduledDate} onChange={(e) => setBooking({ ...booking, scheduledDate: e.target.value })} type="datetime-local" className="w-full bg-slate-50 rounded-2xl px-4 py-4 outline-none" />
-            <input required value={booking.address} onChange={(e) => setBooking({ ...booking, address: e.target.value })} placeholder="Service address" className="w-full bg-slate-50 rounded-2xl px-4 py-4 outline-none" />
+            <ServiceAddressInput
+              value={booking.address}
+              onChange={({ address, coordinates }) => setBooking({ ...booking, address, coordinates })}
+            />
             <textarea value={booking.additionalNotes} onChange={(e) => setBooking({ ...booking, additionalNotes: e.target.value })} placeholder="Notes for the worker" className="w-full h-28 bg-slate-50 rounded-2xl px-4 py-4 outline-none" />
             <div className="grid grid-cols-2 gap-3">
               <button type="button" onClick={() => setSelectedWorker(null)} className="border border-slate-200 py-3 rounded-2xl font-bold">Cancel</button>

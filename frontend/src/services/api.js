@@ -56,6 +56,10 @@ export const getAuditLogs = () => api.get('/admin/audit-logs');
 export const getAdminUsers = (params) => api.get('/admin/users', { params });
 export const getAdminWorkers = (params) => api.get('/admin/workers', { params });
 export const getAdminBookings = (params) => api.get('/admin/bookings', { params });
+export const createAdminUser = (data) => api.post('/admin/users', data);
+export const createAdminWorker = (data) => api.post('/admin/workers', data);
+export const deleteAdminUser = (userId) => api.delete(`/admin/users/${userId}`);
+export const deleteAdminWorker = (workerId) => api.delete(`/admin/workers/${workerId}`);
 export const getPendingWorkers = () => api.get('/admin/pending-workers');
 export const approveWorker = (data) => api.post('/admin/approve-worker', data);
 

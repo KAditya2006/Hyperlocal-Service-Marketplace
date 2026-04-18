@@ -1,0 +1,24 @@
+{
+  "name": "InstantSeva",
+  "short_name": "InstantSeva",
+  "description": "InstantSeva provides fast and reliable local services like electrician, plumber, home tutor and more.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f8fb",
+  "theme_color": "#1467c8",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "252x238",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

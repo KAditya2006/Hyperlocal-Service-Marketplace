@@ -38,44 +38,6 @@
     <priority>0.3</priority>
   </url>
 
-  <!-- Dashboard & Private Pages (Requested for indexing) -->
-  <url>
-    <loc>https://instantseva.onrender.com/dashboard</loc>
-    <lastmod>2026-04-17</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.1</priority>
-  </url>
-  <url>
-    <loc>https://instantseva.onrender.com/worker/dashboard</loc>
-    <lastmod>2026-04-17</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.1</priority>
-  </url>
-  <url>
-    <loc>https://instantseva.onrender.com/admin/dashboard</loc>
-    <lastmod>2026-04-17</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.1</priority>
-  </url>
-  <url>
-    <loc>https://instantseva.onrender.com/profile</loc>
-    <lastmod>2026-04-17</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.1</priority>
-  </url>
-  <url>
-    <loc>https://instantseva.onrender.com/profile/edit</loc>
-    <lastmod>2026-04-17</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.1</priority>
-  </url>
-  <url>
-    <loc>https://instantseva.onrender.com/messages</loc>
-    <lastmod>2026-04-17</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.1</priority>
-  </url>
-
   <!-- Dynamic Pages -->
   <url>
     <loc>https://instantseva.onrender.com/workers/</loc>

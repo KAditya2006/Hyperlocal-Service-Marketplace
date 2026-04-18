@@ -5,11 +5,12 @@ Allow: /login
 Allow: /signup
 Allow: /forgot-password
 Allow: /verify-otp
-Allow: /dashboard
-Allow: /worker/dashboard
-Allow: /admin/dashboard
-Allow: /profile
-Allow: /messages
 Allow: /workers/
+Disallow: /dashboard
+Disallow: /worker/dashboard
+Disallow: /admin/dashboard
+Disallow: /profile
+Disallow: /profile/edit
+Disallow: /messages
 
 Sitemap: https://instantseva.onrender.com/sitemap.xml

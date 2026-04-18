@@ -7,6 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="manifest" href="/site.webmanifest" />
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google-site-verification" content="x599BM2_4B32V7smqbvSgTtTN4iWc4BPSHKvB7IKEdU" />
@@ -27,7 +28,10 @@
     <!-- Extra Brand Meta -->
     <meta name="application-name" content="InstantSeva" />
     <meta name="apple-mobile-web-app-title" content="InstantSeva" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#1467c8" />
+    <meta name="msapplication-TileColor" content="#1467c8" />
 
     <!-- Open Graph (for Google + Social Media) -->
     <meta property="og:title" content="InstantSeva | Speedy On-Demand Local Services" />
@@ -74,39 +78,52 @@
     <!-- Title -->
     <title>InstantSeva | Speedy On-Demand Local Services</title>
 
-    <!-- Structured Data (Logo + Brand) -->
+    <!-- Structured Data (Brand + Website Name) -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "Organization",
-        "name": "InstantSeva",
-        "url": "https://instantseva.onrender.com/",
-        "logo": "https://instantseva.onrender.com/logo.png"
-      }
-    </script>
-
-    <!-- Structured Data (Website Name) -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "InstantSeva",
-        "alternateName": "Instant Seva",
-        "url": "https://instantseva.onrender.com/"
-      }
-    </script>
-
-    <!-- Structured Data (Local Business / Service Brand) -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@type": "LocalBusiness",
-        "name": "InstantSeva",
-        "url": "https://instantseva.onrender.com/",
-        "image": "https://instantseva.onrender.com/logo.png",
-        "logo": "https://instantseva.onrender.com/logo.png",
-        "description": "InstantSeva provides fast and reliable local services like electrician, plumber, home tutor and more.",
-        "areaServed": "Odisha, India"
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://instantseva.onrender.com/#organization",
+            "name": "InstantSeva",
+            "alternateName": ["Instant Seva", "InstantSeva Local Services"],
+            "url": "https://instantseva.onrender.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://instantseva.onrender.com/logo.png"
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://instantseva.onrender.com/#website",
+            "name": "InstantSeva",
+            "alternateName": "Instant Seva",
+            "url": "https://instantseva.onrender.com/",
+            "publisher": {
+              "@id": "https://instantseva.onrender.com/#organization"
+            },
+            "inLanguage": "en-IN",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://instantseva.onrender.com/search?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          },
+          {
+            "@type": "LocalBusiness",
+            "@id": "https://instantseva.onrender.com/#localbusiness",
+            "name": "InstantSeva",
+            "url": "https://instantseva.onrender.com/",
+            "image": "https://instantseva.onrender.com/logo.png",
+            "logo": "https://instantseva.onrender.com/logo.png",
+            "description": "InstantSeva provides fast and reliable local services like electrician, plumber, home tutor and more.",
+            "areaServed": ["Bhubaneswar", "Odisha", "India"],
+            "parentOrganization": {
+              "@id": "https://instantseva.onrender.com/#organization"
+            }
+          }
+        ]
       }
     </script>
   </head>

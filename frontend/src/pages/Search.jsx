@@ -7,6 +7,8 @@ import { CalendarDays, MapPin, MessageSquare, Search as SearchIcon, Star } from 
 import toast from 'react-hot-toast';
 import { formatInr } from '../utils/formatters';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
+import { getOnboardingMessage } from '../utils/onboarding';
+import { getUserPresenceClass, getUserPresenceStatus } from '../utils/presence';
 import { getWorkerAvailabilityClass, getWorkerAvailabilityStatus } from '../utils/workerAvailability';
 import { PROFESSIONS, SERVICE_ALIASES } from '../constants/professions';
 
@@ -121,6 +123,16 @@ const SearchPage = () => {
   const handleChat = async (worker) => {
     if (!token) {
       navigate('/login', { state: { message: 'You have not login yet' } });
+      return;
+    }
+
+    if (user?.role !== 'user') {
+      toast.error('Only customers can chat with workers');
+      return;
+    }
+
+    if (!user?.canAccessDashboard) {
+      navigate('/profile', { state: { notice: getOnboardingMessage(user) } });
       return;
     }
 
@@ -265,6 +277,7 @@ const SearchPage = () => {
             const distanceLabel = formatDistance(worker.distanceKm);
             const availabilityStatus = getWorkerAvailabilityStatus(worker);
             const isAvailable = availabilityStatus === 'Available';
+            const presenceStatus = getUserPresenceStatus(worker.user);
 
             return (
             <article key={worker._id} className="bg-white rounded-3xl p-4 sm:p-6 border border-slate-100 premium-shadow flex flex-col gap-5">
@@ -283,6 +296,9 @@ const SearchPage = () => {
                   <div className="mt-2 flex flex-wrap gap-2">
                     <span className={`text-xs font-black border rounded-full px-2.5 py-1 ${getWorkerAvailabilityClass(availabilityStatus)}`}>
                       {availabilityStatus}
+                    </span>
+                    <span className={`text-xs font-black border rounded-full px-2.5 py-1 ${getUserPresenceClass(worker.user)}`}>
+                      {presenceStatus}
                     </span>
                     {distanceLabel && (
                     <span className="text-xs font-black text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-1">

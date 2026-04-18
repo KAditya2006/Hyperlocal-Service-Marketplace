@@ -1,7 +1,10 @@
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const User = require('../models/User');
+const Booking = require('../models/Booking');
+const WorkerProfile = require('../models/WorkerProfile');
 const { getPagination } = require('../utils/bookingRules');
+const { canInitiateChat } = require('../utils/chatAccess');
 const createNotification = require('../utils/createNotification');
 
 const findUserChat = (chatId, userId) => {
@@ -27,6 +30,15 @@ const getMessagePayload = (message, chatId) => {
   const payload = message.toObject ? message.toObject() : { ...message };
   payload.chatId = chatId.toString();
   return payload;
+};
+
+const attachParticipantPresence = (chat, onlineUserIds = new Set()) => {
+  const plainChat = chat.toObject ? chat.toObject() : { ...chat };
+  plainChat.participants = (plainChat.participants || []).map((participant) => ({
+    ...participant,
+    isOnline: onlineUserIds.has(getId(participant))
+  }));
+  return plainChat;
 };
 
 const emitReceiptUpdates = ({ io, messages, userId, status }) => {
@@ -134,8 +146,13 @@ exports.getChats = async (req, res, next) => {
     const chats = await Chat.find({ participants: req.user.id })
       .populate('participants', 'name email avatar role')
       .sort({ updatedAt: -1 });
+
+    const onlineUserIds = req.app.get('onlineUserIds') || new Set();
     
-    res.status(200).json({ success: true, data: chats });
+    res.status(200).json({
+      success: true,
+      data: chats.map((chat) => attachParticipantPresence(chat, onlineUserIds))
+    });
   } catch (error) {
     next(error);
   }
@@ -180,6 +197,19 @@ exports.initiateChat = async (req, res, next) => {
     const recipient = await User.findById(recipientId);
     if (!recipient) {
       return res.status(404).json({ success: false, message: 'Recipient not found' });
+    }
+
+    const allowed = await canInitiateChat({
+      requester: req.user,
+      recipientId,
+      workerProfileExists: (filter) => WorkerProfile.exists(filter),
+      bookingExists: (filter) => Booking.exists(filter)
+    });
+    if (!allowed) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only start chats related to approved services or your assigned jobs'
+      });
     }
     
     // Check if chat already exists
@@ -249,7 +279,7 @@ exports.sendTextMessage = async (req, res, next) => {
   }
 };
 
-// Handle Image Message Upload via REST (Socket handles text)
+// Handle image messages through the same REST-backed chat flow as text messages.
 exports.uploadImageMessage = async (req, res, next) => {
   try {
     const { chatId } = req.body;

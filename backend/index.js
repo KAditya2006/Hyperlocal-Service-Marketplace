@@ -17,7 +17,7 @@ const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
   .filter(Boolean);
 const renderOrigin = process.env.RENDER_EXTERNAL_URL;
 const allowedOrigins = renderOrigin ? [...configuredOrigins, renderOrigin] : configuredOrigins;
-const isAllowedOrigin = (origin) => !origin || allowedOrigins.includes(origin) || origin.endsWith('.onrender.com');
+const isAllowedOrigin = (origin) => !origin || allowedOrigins.includes(origin);
 const logDev = (...args) => {
   if (process.env.NODE_ENV !== 'production') {
     console.log(...args);
@@ -29,6 +29,16 @@ connectDB();
 
 // Create Server
 const server = http.createServer(app);
+const onlineUserIds = new Set();
+const onlineSocketCounts = new Map();
+app.set('onlineUserIds', onlineUserIds);
+
+const setUserPresence = ({ userId, isOnline }) => {
+  io.emit('presence_updated', {
+    userId: userId.toString(),
+    isOnline
+  });
+};
 
 // Socket.io setup
 const io = new Server(server, {
@@ -44,8 +54,6 @@ const io = new Server(server, {
 });
 
 const Chat = require('./models/Chat');
-const Message = require('./models/Message');
-const createNotification = require('./utils/createNotification');
 const { markDeliveredForUser } = require('./controllers/chatController');
 
 io.use(async (socket, next) => {
@@ -71,7 +79,16 @@ io.use(async (socket, next) => {
 
 // Socket logic
 io.on('connection', (socket) => {
-  logDev('A user connected:', socket.user._id.toString());
+  const socketUserId = socket.user._id.toString();
+  const previousSocketCount = onlineSocketCounts.get(socketUserId) || 0;
+  onlineSocketCounts.set(socketUserId, previousSocketCount + 1);
+  onlineUserIds.add(socketUserId);
+
+  if (previousSocketCount === 0) {
+    setUserPresence({ userId: socketUserId, isOnline: true });
+  }
+
+  logDev('A user connected:', socketUserId);
   markDeliveredForUser({ io, userId: socket.user._id }).catch((error) => {
     console.error('Message delivery receipt error:', error.message);
   });
@@ -82,76 +99,6 @@ io.on('connection', (socket) => {
 
     socket.join(chatId);
     logDev(`User ${socket.user._id.toString()} joined chat room: ${chatId}`);
-  });
-
-  socket.on('send_message', async (data) => {
-    const { chatId, content, messageType = 'text', imageUrl } = data;
-
-    try {
-      const chat = await Chat.findOne({ _id: chatId, participants: socket.user._id });
-      if (!chat) return;
-
-      if (!content && messageType !== 'image') return;
-
-      // Create and save message
-      const recipientIds = chat.participants
-        .filter((participantId) => participantId.toString() !== socket.user._id.toString());
-      const onlineRecipientIds = recipientIds
-        .filter((participantId) => io.sockets.adapter.rooms.get(participantId.toString())?.size);
-
-      const message = await Message.create({
-        chatId,
-        sender: socket.user._id,
-        content,
-        messageType,
-        imageUrl,
-        deliveredTo: onlineRecipientIds,
-        readBy: [socket.user._id]
-      });
-
-      // Update chat last message
-      await Chat.findByIdAndUpdate(chatId, {
-        lastMessage: {
-          text: messageType === 'image' ? 'Sent an image' : content,
-          sender: socket.user._id,
-          createdAt: new Date()
-        }
-      });
-
-      // Populate sender details for the frontend
-      const populatedMessage = await Message.findById(message._id).populate('sender', 'name avatar');
-      const messagePayload = populatedMessage.toObject();
-      messagePayload.chatId = chatId.toString();
-
-      // Emit to the chat room
-      io.to(chatId).emit('receive_message', messagePayload);
-      chat.participants.forEach((participantId) => {
-        io.to(participantId.toString()).emit('receive_message', messagePayload);
-      });
-
-      // Also emit a notification to the recipient's personal room
-      chat.participants
-        .filter((participantId) => participantId.toString() !== socket.user._id.toString())
-        .forEach(async (participantId) => {
-          await createNotification({
-            user: participantId,
-            type: 'message',
-            title: 'New message',
-            message: `${populatedMessage.sender.name}: ${messageType === 'image' ? 'Sent an image' : content}`,
-            entityType: 'Chat',
-            entityId: chatId
-          });
-          io.to(participantId.toString()).emit('new_notification', {
-            type: 'message',
-            chatId,
-            senderName: populatedMessage.sender.name,
-            text: messageType === 'image' ? 'Sent an image' : content
-          });
-        });
-
-    } catch (error) {
-      console.error('Socket Message Error:', error);
-    }
   });
 
   socket.on('join_booking', async (bookingId) => {
@@ -195,6 +142,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    const nextSocketCount = (onlineSocketCounts.get(socketUserId) || 1) - 1;
+    if (nextSocketCount <= 0) {
+      onlineSocketCounts.delete(socketUserId);
+      onlineUserIds.delete(socketUserId);
+      setUserPresence({ userId: socketUserId, isOnline: false });
+    } else {
+      onlineSocketCounts.set(socketUserId, nextSocketCount);
+    }
+
     logDev('User disconnected');
   });
 });

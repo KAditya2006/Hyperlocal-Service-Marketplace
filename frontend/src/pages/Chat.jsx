@@ -2,12 +2,13 @@ import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getChats, getMessages, markChatRead, sendTextMessage, uploadImageMessage } from '../services/api';
-import { disconnectSocket, initiateSocket, joinChatRoom, subscribeToMessageStatus, subscribeToMessages, subscribeToNotifications } from '../services/socket';
+import { disconnectSocket, initiateSocket, joinChatRoom, subscribeToMessageStatus, subscribeToMessages, subscribeToNotifications, subscribeToPresence } from '../services/socket';
 import Navbar from '../components/Navbar';
-import { MessageSquare, Send, Image as ImageIcon, Search, Phone, MoreVertical, Check, CheckCheck, User as UserIcon, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, Image as ImageIcon, Search, Phone, MoreVertical, Check, CheckCheck, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
+import { getPresenceDotClass } from '../utils/presence';
 
 const getReferenceId = (value) => {
   if (!value) return null;
@@ -37,6 +38,10 @@ const getOtherParticipantIds = (chat, userId) => {
     .filter((participantId) => participantId && participantId !== String(userId));
 };
 
+const getOtherParticipant = (chat, userId) => {
+  return chat?.participants?.find((participant) => getReferenceId(participant) !== String(userId));
+};
+
 const getMessageReceipt = (message, chat, userId) => {
   const recipientIds = getOtherParticipantIds(chat, userId);
   const wasRead = recipientIds.some((recipientId) => hasReference(message.readBy || [], recipientId));
@@ -59,6 +64,7 @@ const ChatPage = () => {
   const [loading, setLoading] = useState(true);
   const [msgLoading, setMsgLoading] = useState(false);
   const [messagePagination, setMessagePagination] = useState({ page: 1, pages: 1 });
+  const [onlineUserIds, setOnlineUserIds] = useState(new Set());
   const scrollRef = useRef();
   const activeChatRef = useRef(null);
   const chatsRef = useRef([]);
@@ -89,6 +95,26 @@ const ChatPage = () => {
     }));
   }, []);
 
+  const syncPresenceFromChats = useCallback((chatList) => {
+    setOnlineUserIds(() => {
+      const nextOnlineUserIds = new Set();
+      chatList.forEach((chat) => {
+        chat.participants?.forEach((participant) => {
+          const participantId = getReferenceId(participant);
+          if (participantId && participant.isOnline) {
+            nextOnlineUserIds.add(participantId);
+          }
+        });
+      });
+      return nextOnlineUserIds;
+    });
+  }, []);
+
+  const isParticipantOnline = useCallback((participant) => {
+    const participantId = getReferenceId(participant);
+    return Boolean(participantId && onlineUserIds.has(participantId));
+  }, [onlineUserIds]);
+
   const markActiveChatRead = useCallback(async (chatId) => {
     try {
       await markChatRead(chatId);
@@ -117,6 +143,7 @@ const ChatPage = () => {
       const { data } = await getChats();
       const chatList = data.data;
       setChats(chatList);
+      syncPresenceFromChats(chatList);
 
       if (!initialChatLoadedRef.current && initialChatId) {
         const initialChat = chatList.find((chat) => chat._id === initialChatId);
@@ -130,7 +157,7 @@ const ChatPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [handleChatSelect, initialChatId]);
+  }, [handleChatSelect, initialChatId, syncPresenceFromChats]);
 
   useEffect(() => {
     activeChatRef.current = activeChat;
@@ -160,6 +187,18 @@ const ChatPage = () => {
       }
     });
 
+    const unsubscribePresence = subscribeToPresence((err, presence) => {
+      setOnlineUserIds((currentOnlineUserIds) => {
+        const nextOnlineUserIds = new Set(currentOnlineUserIds);
+        if (presence.isOnline) {
+          nextOnlineUserIds.add(String(presence.userId));
+        } else {
+          nextOnlineUserIds.delete(String(presence.userId));
+        }
+        return nextOnlineUserIds;
+      });
+    });
+
     const unsubscribeNotifications = subscribeToNotifications((err, notif) => {
       if (!activeChatRef.current || String(notif.chatId) !== String(activeChatRef.current._id)) {
         toast((t) => (
@@ -175,6 +214,7 @@ const ChatPage = () => {
       unsubscribeMessages?.();
       unsubscribeMessageStatus?.();
       unsubscribeNotifications?.();
+      unsubscribePresence?.();
       disconnectSocket();
     };
   }, [appendMessage, fetchChats, handleChatSelect, markActiveChatRead, updateMessageReceipts, user.id]);
@@ -233,7 +273,7 @@ const ChatPage = () => {
   };
 
   const filteredChats = chats.filter((chat) => {
-    const otherParticipant = chat.participants.find(p => p._id !== user.id);
+    const otherParticipant = getOtherParticipant(chat, user.id);
     return otherParticipant?.name?.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
@@ -270,24 +310,29 @@ const ChatPage = () => {
 
           <div className="flex-1 overflow-y-auto custom-scrollbar">
             {filteredChats.length > 0 ? filteredChats.map((chat) => (
+              (() => {
+                const otherParticipant = getOtherParticipant(chat, user.id);
+                const otherParticipantOnline = isParticipantOnline(otherParticipant);
+
+                return (
               <div 
                 key={chat._id} 
                 onClick={() => handleChatSelect(chat)}
                 className={`p-6 flex items-center gap-4 cursor-pointer transition-all border-l-4 ${activeChat?._id === chat._id ? 'bg-primary-50/50 border-primary-600 shadow-sm' : 'border-transparent hover:bg-slate-50'}`}
               >
                 <div className="relative">
-                  <img 
-                    src={chat.participants.find(p => p._id !== user.id)?.avatar || fallbackAvatar} 
+                  <img
+                    src={otherParticipant?.avatar || fallbackAvatar}
                     onError={withImageFallback()}
                     alt="User" 
                     className="w-14 h-14 rounded-2xl object-cover border-2 border-white premium-shadow"
                   />
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
+                  <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${getPresenceDotClass(otherParticipantOnline)} border-2 border-white rounded-full`}></div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-center mb-1">
                     <h4 className="font-bold text-slate-900 truncate">
-                      {chat.participants.find(p => p._id !== user.id)?.name}
+                      {otherParticipant?.name}
                     </h4>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">
                       {chat.updatedAt ? format(new Date(chat.updatedAt), 'h:mm a') : ''}
@@ -298,6 +343,8 @@ const ChatPage = () => {
                   </p>
                 </div>
               </div>
+                );
+              })()
             )) : (
             <div className="p-8 sm:p-12 text-center text-slate-400 font-bold italic">No messages yet</div>
             )}
@@ -307,22 +354,27 @@ const ChatPage = () => {
         {/* Chat Window */}
         <div className={`${activeChat ? 'flex' : 'hidden md:flex'} flex-1 bg-white rounded-3xl md:rounded-[40px] premium-shadow border border-slate-100 flex-col overflow-hidden relative min-h-[75vh] md:min-h-0`}>
           {activeChat ? (
+            (() => {
+              const activeParticipant = getOtherParticipant(activeChat, user.id);
+              const activeParticipantOnline = isParticipantOnline(activeParticipant);
+
+              return (
             <>
               {/* Window Header */}
               <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-slate-50 flex justify-between items-center gap-3 bg-white/80 backdrop-blur-md sticky top-0 z-10">
                 <div className="flex items-center gap-4">
                   <button onClick={() => setActiveChat(null)} className="md:hidden text-slate-400 font-bold text-xl">Back</button>
-                  <img 
-                    src={activeChat.participants.find(p => p._id !== user.id)?.avatar || fallbackAvatar} 
+                  <img
+                    src={activeParticipant?.avatar || fallbackAvatar}
                     onError={withImageFallback()}
                     className="w-12 h-12 rounded-2xl object-cover" 
                     alt="Active" 
                   />
                   <div>
-                    <h3 className="font-bold text-slate-900 text-base sm:text-lg truncate max-w-[150px] sm:max-w-none">{activeChat.participants.find(p => p._id !== user.id)?.name}</h3>
+                    <h3 className="font-bold text-slate-900 text-base sm:text-lg truncate max-w-[150px] sm:max-w-none">{activeParticipant?.name}</h3>
                     <div className="flex items-center gap-2">
-                       <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                       <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Active Now</span>
+                       <div className={`w-2 h-2 ${getPresenceDotClass(activeParticipantOnline)} rounded-full ${activeParticipantOnline ? 'animate-pulse' : ''}`}></div>
+                       <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{activeParticipantOnline ? 'Active Now' : 'Offline'}</span>
                     </div>
                   </div>
                 </div>
@@ -390,6 +442,8 @@ const ChatPage = () => {
                  </form>
               </div>
             </>
+              );
+            })()
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 text-center">
                <div className="w-24 h-24 bg-primary-50 rounded-[40px] flex items-center justify-center mb-8 text-primary-600 shadow-xl shadow-primary-100/50">

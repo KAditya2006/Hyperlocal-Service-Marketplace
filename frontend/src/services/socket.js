@@ -19,10 +19,6 @@ export const joinChatRoom = (chatId) => {
   if (socket) socket.emit('join_chat', chatId);
 };
 
-export const sendMessage = (data) => {
-  if (socket) socket.emit('send_message', data);
-};
-
 export const subscribeToMessages = (callback) => {
   if (!socket) return;
   const handler = (msg) => {
@@ -48,6 +44,15 @@ export const subscribeToMessageStatus = (callback) => {
   };
   socket.on('message_status_updated', handler);
   return () => socket?.off('message_status_updated', handler);
+};
+
+export const subscribeToPresence = (callback) => {
+  if (!socket) return;
+  const handler = (presence) => {
+    callback(null, presence);
+  };
+  socket.on('presence_updated', handler);
+  return () => socket?.off('presence_updated', handler);
 };
 
 export const getSocket = () => socket;

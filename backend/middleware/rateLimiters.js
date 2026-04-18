@@ -43,8 +43,22 @@ const passwordResetLimiter = createJsonLimiter({
   message: 'Too many password reset attempts. Please try again later.'
 });
 
+const chatMessageLimiter = createJsonLimiter({
+  windowMs: 60 * 1000,
+  limit: 40,
+  message: 'Too many chat messages. Please slow down and try again shortly.'
+});
+
+const locationSearchLimiter = createJsonLimiter({
+  windowMs: 60 * 1000,
+  limit: 60,
+  message: 'Too many location searches. Please wait a moment and try again.'
+});
+
 module.exports = {
   authLimiter,
+  chatMessageLimiter,
+  locationSearchLimiter,
   loginLimiter,
   otpLimiter,
   passwordResetLimiter,

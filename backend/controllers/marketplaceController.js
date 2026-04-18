@@ -15,6 +15,11 @@ const parseCoordinate = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const getId = (value) => {
+  if (!value) return null;
+  return value._id ? value._id.toString() : value.toString();
+};
+
 const getSearchOrigin = (query = {}) => {
   const lat = parseCoordinate(query.lat);
   const lng = parseCoordinate(query.lng);
@@ -66,6 +71,17 @@ const sortWorkersByDistance = (workers, origin) => {
     });
 };
 
+const attachWorkerPresence = (worker, onlineUserIds = new Set()) => {
+  const plainWorker = typeof worker.toObject === 'function' ? worker.toObject() : { ...worker };
+  if (plainWorker.user) {
+    plainWorker.user = {
+      ...plainWorker.user,
+      isOnline: onlineUserIds.has(getId(plainWorker.user))
+    };
+  }
+  return plainWorker;
+};
+
 const getSearchTerms = (searchTerm) => {
   const normalized = String(searchTerm || '').trim().toLowerCase();
   if (!normalized) return [];
@@ -113,11 +129,12 @@ exports.searchWorkers = async (req, res, next) => {
 
     const total = await WorkerProfile.countDocuments(filter);
     const matchedWorkers = await query;
+    const onlineUserIds = req.app.get('onlineUserIds') || new Set();
     const workers = origin ? sortWorkersByDistance(matchedWorkers, origin).slice(skip, skip + limit) : matchedWorkers;
 
     res.status(200).json({
       success: true,
-      data: workers,
+      data: workers.map((worker) => attachWorkerPresence(worker, onlineUserIds)),
       pagination: { page, limit, total, pages: Math.ceil(total / limit) || 1 }
     });
   } catch (error) {
@@ -141,7 +158,15 @@ exports.getWorkerDetails = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .limit(20);
 
-    res.status(200).json({ success: true, data: { worker, reviews } });
+    const onlineUserIds = req.app.get('onlineUserIds') || new Set();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        worker: attachWorkerPresence(worker, onlineUserIds),
+        reviews
+      }
+    });
   } catch (error) {
     next(error);
   }

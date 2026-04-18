@@ -70,6 +70,10 @@ const workerProfileSchema = new mongoose.Schema({
   timestamps: true
 });
 
+workerProfileSchema.index({ approvalStatus: 1, availabilityStatus: 1, updatedAt: -1 });
+workerProfileSchema.index({ skills: 1 });
+workerProfileSchema.index({ averageRating: -1, totalReviews: -1 });
+
 const WorkerProfile = mongoose.model('WorkerProfile', workerProfileSchema);
 
 module.exports = WorkerProfile;

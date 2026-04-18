@@ -7,6 +7,8 @@ import { CalendarDays, MapPin, MessageSquare, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatInr } from '../utils/formatters';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
+import { getOnboardingMessage } from '../utils/onboarding';
+import { getUserPresenceClass, getUserPresenceStatus } from '../utils/presence';
 import { getWorkerAvailabilityClass, getWorkerAvailabilityStatus } from '../utils/workerAvailability';
 
 const WorkerProfile = () => {
@@ -34,6 +36,9 @@ const WorkerProfile = () => {
 
   const handleChat = async () => {
     if (!token) return navigate('/login', { state: { message: 'You have not login yet' } });
+    if (user?.role !== 'user') return toast.error('Only customers can chat with workers');
+    if (!user?.canAccessDashboard) return navigate('/profile', { state: { notice: getOnboardingMessage(user) } });
+
     try {
       await initiateChat({ recipientId: worker.user._id });
       navigate('/messages');
@@ -69,6 +74,7 @@ const WorkerProfile = () => {
 
   const availabilityStatus = getWorkerAvailabilityStatus(worker);
   const isAvailable = availabilityStatus === 'Available';
+  const presenceStatus = getUserPresenceStatus(worker.user);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -81,9 +87,14 @@ const WorkerProfile = () => {
               <div className="space-y-3 min-w-0">
                 <h1 className="text-3xl sm:text-4xl font-bold font-heading text-slate-900 break-words">{worker.user?.name}</h1>
                 <p className="flex items-center gap-2 text-amber-500 font-bold"><Star fill="currentColor" size={18} /> {worker.averageRating?.toFixed(1) || '0.0'} ({worker.totalReviews || 0} reviews)</p>
-                <span className={`inline-flex text-xs font-black border rounded-full px-3 py-1.5 ${getWorkerAvailabilityClass(availabilityStatus)}`}>
-                  {availabilityStatus}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                  <span className={`inline-flex text-xs font-black border rounded-full px-3 py-1.5 ${getWorkerAvailabilityClass(availabilityStatus)}`}>
+                    {availabilityStatus}
+                  </span>
+                  <span className={`inline-flex text-xs font-black border rounded-full px-3 py-1.5 ${getUserPresenceClass(worker.user)}`}>
+                    {presenceStatus}
+                  </span>
+                </div>
                 <p className="flex items-start gap-2 text-slate-500"><MapPin size={18} className="mt-0.5 shrink-0" /> <span className="break-words">{worker.user?.location?.address || 'Nearby'}</span></p>
                 <p className="text-xl font-bold text-slate-900">{formatInr(worker.pricing?.amount)}/{worker.pricing?.unit || 'hour'}</p>
               </div>

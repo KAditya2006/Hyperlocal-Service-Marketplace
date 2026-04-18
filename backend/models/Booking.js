@@ -60,6 +60,10 @@ const bookingSchema = new mongoose.Schema({
   timestamps: true
 });
 
+bookingSchema.index({ user: 1, scheduledDate: -1 });
+bookingSchema.index({ worker: 1, scheduledDate: -1 });
+bookingSchema.index({ status: 1, scheduledDate: -1 });
+
 const Booking = mongoose.model('Booking', bookingSchema);
 
 module.exports = Booking;

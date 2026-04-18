@@ -87,7 +87,7 @@ function AppRoutes() {
       <Route 
         path="/messages" 
         element={
-          <ProtectedRoute>
+          <ProtectedRoute requireDashboardAccess>
             <ChatPage />
           </ProtectedRoute>
         } 

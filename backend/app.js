@@ -14,9 +14,23 @@ const hasFrontendBuild = fs.existsSync(path.join(frontendDistPath, 'index.html')
 /**
  * 1. SECURITY & CONFIGURATION
  */
-app.use(helmet({
-  contentSecurityPolicy: false, // Relaxed for development/SEO flexibility
-}));
+const isProduction = process.env.NODE_ENV === 'production';
+const contentSecurityPolicy = isProduction ? {
+  directives: {
+    defaultSrc: ["'self'"],
+    baseUri: ["'self'"],
+    connectSrc: ["'self'", 'https:', 'wss:'],
+    fontSrc: ["'self'", 'https:', 'data:'],
+    formAction: ["'self'"],
+    frameAncestors: ["'self'"],
+    imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+    objectSrc: ["'none'"],
+    scriptSrc: ["'self'"],
+    styleSrc: ["'self'", "'unsafe-inline'", 'https:']
+  }
+} : false;
+
+app.use(helmet({ contentSecurityPolicy }));
 
 const configuredOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
   .split(',')
@@ -27,7 +41,7 @@ const allowedOrigins = renderOrigin ? [...configuredOrigins, renderOrigin] : con
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.onrender.com')) {
+    if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     const error = new Error('Not allowed by CORS');

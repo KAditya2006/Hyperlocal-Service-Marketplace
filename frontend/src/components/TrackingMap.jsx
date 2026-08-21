@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { io } from 'socket.io-client';
+import { useTranslation } from 'react-i18next';
 
 // Fix for default marker icons in Leaflet
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -47,14 +48,16 @@ const TrackingMap = ({
   userLocation,
   destinationLocation,
   destinationAddress,
-  destinationLabel = 'Service Destination',
+  destinationLabel,
   initialWorkerLocation,
   shareWorkerLocation = false,
   viewerRole = 'user'
 }) => {
+  const { t } = useTranslation();
   const destinationPos = destinationLocation || userLocation;
   const [workerPos, setWorkerPos] = useState(initialWorkerLocation || [0, 0]);
   const socketRef = useRef(null);
+  const localizedDestinationLabel = destinationLabel || t('trackingMap.serviceDestination');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -111,8 +114,8 @@ const TrackingMap = ({
     const googleSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destinationAddress || destinationLabel)}`;
     return (
       <div className="rounded-[32px] border border-slate-100 bg-slate-50 p-4">
-        <p className="text-sm font-bold text-slate-900">{destinationLabel}</p>
-        <p className="mt-1 text-sm font-medium text-slate-500 break-words">{destinationAddress || 'Address coordinates are not available.'}</p>
+        <p className="text-sm font-bold text-slate-900">{localizedDestinationLabel}</p>
+        <p className="mt-1 text-sm font-medium text-slate-500 break-words">{destinationAddress || t('trackingMap.addressUnavailable')}</p>
         {destinationAddress && (
           <a
             href={googleSearchUrl}
@@ -120,7 +123,7 @@ const TrackingMap = ({
             rel="noreferrer"
             className="mt-3 inline-flex rounded-xl bg-white px-4 py-2 text-xs font-bold text-slate-700 border border-slate-200"
           >
-            Open address in Google Maps
+            {t('trackingMap.openAddressInGoogleMaps')}
           </a>
         )}
       </div>
@@ -137,7 +140,7 @@ const TrackingMap = ({
         <Marker position={destinationPos} icon={userIcon}>
           <Popup>
             <div>
-              <strong>{destinationLabel}</strong>
+              <strong>{localizedDestinationLabel}</strong>
               {destinationAddress && <p>{destinationAddress}</p>}
             </div>
           </Popup>
@@ -145,7 +148,7 @@ const TrackingMap = ({
         {hasWorkerPosition && (
           <>
             <Marker position={workerPos} icon={workerIcon}>
-              <Popup>{viewerRole === 'worker' ? 'Your Live Location' : 'Worker Live Location'}</Popup>
+              <Popup>{viewerRole === 'worker' ? t('trackingMap.yourLiveLocation') : t('trackingMap.workerLiveLocation')}</Popup>
             </Marker>
             <Polyline positions={[workerPos, destinationPos]} color="#6366f1" weight={3} dashArray="10, 10" />
             <RecenterMap center={workerPos} />
@@ -159,7 +162,7 @@ const TrackingMap = ({
            rel="noreferrer"
            className="flex-1 bg-white px-4 py-2 rounded-xl border border-slate-200 font-bold text-slate-700 text-xs text-center shadow-lg flex items-center justify-center gap-2"
          >
-           Directions in Google Maps
+           {t('trackingMap.directionsInGoogleMaps')}
          </a>
       </div>
     </div>

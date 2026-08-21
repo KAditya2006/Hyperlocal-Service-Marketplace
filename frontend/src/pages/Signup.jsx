@@ -42,7 +42,6 @@ const Signup = () => {
         navigate('/verify-otp', { state: { email: formData.email } });
       }
     } catch (error) {
-      console.error('Registration error detail:', error);
       const msg = error.response?.data?.message || error.message || t('auth.registrationFailed');
       toast.error(msg);
     } finally {
@@ -56,7 +55,7 @@ const Signup = () => {
       <div className="hidden lg:flex lg:w-1/2 bg-primary-600 p-10 xl:p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute top-[-20%] right-[-20%] h-[min(600px,80vw)] w-[min(600px,80vw)] bg-white/10 rounded-full blur-[100px]" />
         <div className="relative z-10">
-          <Link to="/" className="inline-flex" aria-label="InstantSeva home">
+          <Link to="/" className="inline-flex" aria-label={t('navbar.instantHome')}>
             <BrandLogo light />
           </Link>
           <div className="mt-24 max-w-lg">

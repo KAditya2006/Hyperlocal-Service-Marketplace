@@ -11,13 +11,9 @@ const failures = [];
 
 const read = (relativePath) => fs.readFileSync(path.resolve(root, relativePath), 'utf8');
 
-const pageFiles = [
-  'src/pages/WorkerDashboard.jsx',
-  'src/pages/Profile.jsx',
-  'src/pages/EditProfile.jsx',
-  'src/pages/WorkerProfile.jsx',
-  'src/pages/ForgotPassword.jsx'
-];
+const pageFiles = fs.readdirSync(path.resolve(root, 'src/pages'))
+  .filter((file) => file.endsWith('.jsx'))
+  .map((file) => `src/pages/${file}`);
 
 pageFiles.forEach((file) => {
   const source = read(file);
@@ -29,6 +25,34 @@ pageFiles.forEach((file) => {
   }
   if (/placeholder="[^"]*[A-Za-z]/.test(source)) {
     failures.push(`${file} still has a hardcoded placeholder`);
+  }
+  if (/\b(?:aria-label|title)=["'][A-Za-z][^{"']*["']/.test(source)) {
+    failures.push(`${file} still has a hardcoded aria-label/title`);
+  }
+});
+
+const sharedFiles = [
+  'src/components/admin/AdminDashboardSections.jsx',
+  'src/components/Navbar.jsx',
+  'src/components/BookingDetailsModal.jsx',
+  'src/components/TrackingMap.jsx',
+  'src/components/ServiceAddressInput.jsx',
+  'src/components/VoiceSearchButton.jsx'
+];
+
+sharedFiles.forEach((file) => {
+  const source = read(file);
+  if (!source.includes('useTranslation')) {
+    failures.push(`${file} must use react-i18next directly`);
+  }
+  if (/toast\.(success|error|loading)\(\s*['"`]/.test(source)) {
+    failures.push(`${file} still has a hardcoded toast message`);
+  }
+  if (/placeholder="[^"]*[A-Za-z]/.test(source)) {
+    failures.push(`${file} still has a hardcoded placeholder`);
+  }
+  if (/\b(?:aria-label|title)=["'][A-Za-z][^{"']*["']/.test(source)) {
+    failures.push(`${file} still has a hardcoded aria-label/title`);
   }
 });
 
@@ -45,9 +69,14 @@ if (!runtimeTranslator.includes("language === 'en'")) {
   failures.push('RuntimeTranslator should skip DOM observation for English');
 }
 
-const adminDashboard = read('src/pages/AdminDashboard.jsx');
-if (!adminDashboard.includes('DocumentPreview') || !adminDashboard.includes('resolveAssetUrl')) {
-  failures.push('AdminDashboard must resolve and preview uploaded KYC documents safely');
+const adminDashboardPreview = read('src/components/admin/AdminDashboardSections.jsx');
+if (!adminDashboardPreview.includes('DocumentPreview') || !adminDashboardPreview.includes('resolveAssetUrl')) {
+  failures.push('Admin dashboard KYC review must resolve and preview uploaded documents safely');
+}
+
+const serviceAddressInput = read('src/components/ServiceAddressInput.jsx');
+if (!serviceAddressInput.includes("t('common.addressSearchPlaceholder')") || !serviceAddressInput.includes("t('common.addressMapHint')")) {
+  failures.push('ServiceAddressInput must translate address placeholders and helper copy');
 }
 
 const frontendSearch = read('src/utils/multilingualSearch.js');

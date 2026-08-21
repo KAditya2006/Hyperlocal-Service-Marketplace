@@ -12,6 +12,17 @@ const requiredCommonKeys = ['language', 'search', 'login', 'logout', 'profile', 
 const failures = [];
 const warnings = [];
 
+const flattenKeys = (value, prefix = '') => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return prefix ? [prefix] : [];
+  }
+
+  return Object.entries(value).flatMap(([key, nestedValue]) => {
+    const nextPrefix = prefix ? `${prefix}.${key}` : key;
+    return flattenKeys(nestedValue, nextPrefix);
+  });
+};
+
 const readLocale = (code) => {
   const filePath = path.join(localeDir, `${code}.json`);
   if (!fs.existsSync(filePath)) {
@@ -58,6 +69,28 @@ SUPPORTED_LANGUAGE_CODES.forEach((code) => {
 
   checkCaseInsensitivePhraseDuplicates(code, locale.phrases);
 });
+
+const englishLocale = readLocale('en');
+if (englishLocale) {
+  const englishKeys = new Set(flattenKeys(englishLocale));
+
+  SUPPORTED_LANGUAGE_CODES
+    .filter((code) => code !== 'en')
+    .forEach((code) => {
+      const locale = readLocale(code);
+      if (!locale) return;
+
+      const localeKeys = new Set(flattenKeys(locale));
+      const missingKeys = [...englishKeys].filter((key) => !localeKeys.has(key));
+      if (!missingKeys.length) return;
+
+      const preview = missingKeys.slice(0, 5).join(', ');
+      warnings.push(
+        `${code}.json falls back to English for ${missingKeys.length} keys` +
+        (preview ? ` (examples: ${preview})` : '')
+      );
+    });
+}
 
 const existingLocaleCodes = fs.readdirSync(localeDir)
   .filter((fileName) => fileName.endsWith('.json'))

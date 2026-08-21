@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { getBookings, getWorkerProfile, initiateChat, updateBookingStatus, updateWorkerProfile, uploadKYC, verifyCompletionOTP } from '../services/api';
 import Navbar from '../components/Navbar';
-import BookingDetailsModal from '../components/BookingDetailsModal';
-import TrackingMap from '../components/TrackingMap';
 import { LayoutDashboard, FileCheck, DollarSign, Briefcase, Star, Clock, AlertCircle, CheckCircle2, Upload, User as UserIcon, XCircle, Key, MessageSquare, MapPin } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
@@ -12,6 +10,9 @@ import { formatInr } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
 import { fallbackAvatar, withImageFallback } from '../utils/images';
 import { getBookingDestination } from '../utils/location';
+
+const BookingDetailsModal = React.lazy(() => import('../components/BookingDetailsModal'));
+const TrackingMap = React.lazy(() => import('../components/TrackingMap'));
 
 const WorkerDashboard = () => {
   const { t } = useTranslation();
@@ -180,19 +181,19 @@ const WorkerDashboard = () => {
         {/* Sidebar Nav */}
         <aside className="w-full lg:w-64 lg:shrink-0 space-y-2 min-w-0">
           <nav className="bg-white p-3 sm:p-4 rounded-3xl premium-shadow border border-slate-100 flex lg:flex-col gap-2 overflow-x-auto">
-            <button onClick={() => setActiveSection('overview')} className={`flex-1 lg:flex-none flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeSection === 'overview' ? 'bg-primary-50 text-primary-600' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <button onClick={() => setActiveSection('overview')} className={`shrink-0 lg:w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeSection === 'overview' ? 'bg-primary-50 text-primary-600' : 'text-slate-500 hover:bg-slate-50'}`}>
               <LayoutDashboard size={20} /> {t('common.dashboard')}
             </button>
-            <button onClick={() => setActiveSection('jobs')} className={`flex-1 lg:flex-none flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeSection === 'jobs' ? 'bg-primary-50 text-primary-600' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <button onClick={() => setActiveSection('jobs')} className={`shrink-0 lg:w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeSection === 'jobs' ? 'bg-primary-50 text-primary-600' : 'text-slate-500 hover:bg-slate-50'}`}>
               <Briefcase size={20} /> {t('workerDashboard.myJobs')}
             </button>
-            <Link to="/messages" className="flex-1 lg:flex-none flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-50">
+            <Link to="/messages" className="shrink-0 lg:w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap text-slate-500 hover:bg-slate-50">
               <MessageSquare size={20} /> {t('chat.messages')}
             </Link>
-            <button onClick={() => setActiveSection('kyc')} className={`flex-1 lg:flex-none flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeSection === 'kyc' ? 'bg-primary-50 text-primary-600' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <button onClick={() => setActiveSection('kyc')} className={`shrink-0 lg:w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeSection === 'kyc' ? 'bg-primary-50 text-primary-600' : 'text-slate-500 hover:bg-slate-50'}`}>
               <FileCheck size={20} /> {t('workerDashboard.kycVerification')}
             </button>
-            <button onClick={() => setActiveSection('profile')} className={`flex-1 lg:flex-none flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeSection === 'profile' ? 'bg-primary-50 text-primary-600' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <button onClick={() => setActiveSection('profile')} className={`shrink-0 lg:w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-all whitespace-nowrap ${activeSection === 'profile' ? 'bg-primary-50 text-primary-600' : 'text-slate-500 hover:bg-slate-50'}`}>
                <UserIcon size={20} /> {t('workerDashboard.profileSettings')}
             </button>
           </nav>
@@ -419,14 +420,16 @@ const WorkerDashboard = () => {
                         <MapPin size={16} className="text-primary-600" />
                         <span>{t('workerDashboard.customerServiceLocation')}</span>
                       </div>
-                      <TrackingMap
-                        bookingId={booking._id}
-                        destinationLocation={destinationLocation}
-                        destinationAddress={booking.address}
-                        destinationLabel={t('workerDashboard.customerDestination')}
-                        viewerRole="worker"
-                        shareWorkerLocation={Boolean(destinationLocation)}
-                      />
+                      <Suspense fallback={<div className="h-[280px] sm:h-[360px] lg:h-[400px] rounded-3xl border border-slate-100 bg-slate-50 animate-pulse" />}>
+                        <TrackingMap
+                          bookingId={booking._id}
+                          destinationLocation={destinationLocation}
+                          destinationAddress={booking.address}
+                          destinationLabel={t('workerDashboard.customerDestination')}
+                          viewerRole="worker"
+                          shareWorkerLocation={Boolean(destinationLocation)}
+                        />
+                      </Suspense>
                     </div>
                   )}
                 </div>
@@ -443,11 +446,13 @@ const WorkerDashboard = () => {
           </section>}
         </main>
       </div>
-      <BookingDetailsModal
-        booking={selectedBooking}
-        viewerRole="worker"
-        onClose={() => setSelectedBooking(null)}
-      />
+      <Suspense fallback={null}>
+        <BookingDetailsModal
+          booking={selectedBooking}
+          viewerRole="worker"
+          onClose={() => setSelectedBooking(null)}
+        />
+      </Suspense>
     </div>
   );
 };

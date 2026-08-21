@@ -4,6 +4,7 @@ const User = require('../models/User');
 const { getPagination } = require('../utils/bookingRules');
 const escapeRegex = require('../utils/escapeRegex');
 const { normalizeServiceSearch } = require('../utils/serviceKeywords');
+const { attachPresence, getId } = require('../utils/presence');
 
 const SERVICE_ALIASES = {
   pharmacist: ['pharmacist', 'pharamascist'],
@@ -15,11 +16,6 @@ const SERVICE_ALIASES = {
 const parseCoordinate = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-};
-
-const getId = (value) => {
-  if (!value) return null;
-  return value._id ? value._id.toString() : value.toString();
 };
 
 const getSearchOrigin = (query = {}) => {
@@ -76,10 +72,7 @@ const sortWorkersByDistance = (workers, origin) => {
 const attachWorkerPresence = (worker, onlineUserIds = new Set()) => {
   const plainWorker = typeof worker.toObject === 'function' ? worker.toObject() : { ...worker };
   if (plainWorker.user) {
-    plainWorker.user = {
-      ...plainWorker.user,
-      isOnline: onlineUserIds.has(getId(plainWorker.user))
-    };
+    plainWorker.user = attachPresence(plainWorker.user, onlineUserIds);
   }
   return plainWorker;
 };
@@ -124,7 +117,7 @@ exports.searchWorkers = async (req, res, next) => {
     }
 
     const query = WorkerProfile.find(filter)
-      .populate('user', 'name email avatar phone location isDeleted')
+      .populate('user', 'name email avatar phone location isDeleted isOnline lastSeenAt presenceUpdatedAt')
       .sort({ averageRating: -1, totalReviews: -1, updatedAt: -1 });
 
     if (!origin) {
@@ -151,7 +144,7 @@ exports.getWorkerDetails = async (req, res, next) => {
     const worker = await WorkerProfile.findOne({
       user: req.params.workerId,
       approvalStatus: 'approved'
-    }).populate('user', 'name email avatar phone location isDeleted');
+    }).populate('user', 'name email avatar phone location isDeleted isOnline lastSeenAt presenceUpdatedAt');
 
     if (!worker || worker.user?.isDeleted) {
       return res.status(404).json({ success: false, message: req.t('workerNotFound') });

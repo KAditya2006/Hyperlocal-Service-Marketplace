@@ -3,10 +3,39 @@ import { Mic, Volume2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import useSpeech from '../hooks/useSpeech';
+import { loadI18nLanguage } from '../i18n';
+import { normalizeServiceSearch } from '../utils/multilingualSearch';
+import { detectSpokenLanguage, getVoiceSearchFeedback } from '../utils/voiceLanguage';
 
-const VoiceSearchButton = ({ onTranscript, speakText, className = '' }) => {
-  const { t } = useTranslation();
+const VoiceSearchButton = ({ onTranscript, onAutoProceed, autoProceed = false, speakText, className = '' }) => {
+  const { t, i18n } = useTranslation();
   const { listening, startListening, speak, voiceSupported, speechSupported } = useSpeech();
+  const currentLanguage = i18n.resolvedLanguage || i18n.language || 'en';
+
+  const handleTranscript = React.useCallback(async (text) => {
+    const spokenLanguage = detectSpokenLanguage(text, currentLanguage);
+    const normalizedQuery = normalizeServiceSearch(text);
+    const voiceContext = { language: spokenLanguage, normalizedQuery };
+
+    try {
+      await loadI18nLanguage(spokenLanguage);
+      await i18n.changeLanguage(spokenLanguage);
+    } catch {
+      // Fallback language handling stays inside i18next; the voice action should still continue.
+    }
+
+    const feedback = getVoiceSearchFeedback(text, spokenLanguage);
+    toast.success(feedback);
+    onTranscript?.(text, voiceContext);
+
+    if (speechSupported) {
+      speak(feedback, spokenLanguage);
+    }
+
+    if (autoProceed) {
+      onAutoProceed?.(text, voiceContext);
+    }
+  }, [autoProceed, currentLanguage, i18n, onAutoProceed, onTranscript, speak, speechSupported]);
 
   const handleVoice = () => {
     if (!voiceSupported) {
@@ -15,9 +44,9 @@ const VoiceSearchButton = ({ onTranscript, speakText, className = '' }) => {
     }
 
     startListening({
+      languageCode: currentLanguage,
       onResult: (text) => {
-        toast.success(t('voice.heard', { text }));
-        onTranscript?.(text);
+        void handleTranscript(text);
       },
       onError: (message) => toast.error(message)
     });
@@ -29,11 +58,11 @@ const VoiceSearchButton = ({ onTranscript, speakText, className = '' }) => {
       return;
     }
 
-    speak(speakText || t('voice.voiceSearch'));
+    speak(speakText || t('voice.voiceSearch'), currentLanguage);
   };
 
   return (
-    <span className={`inline-flex items-center gap-1 ${className}`}>
+    <span className={`inline-flex shrink-0 items-center gap-1 ${className}`}>
       <button
         type="button"
         onClick={handleVoice}

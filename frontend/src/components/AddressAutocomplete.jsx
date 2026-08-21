@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Loader2, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { searchLocations } from '../services/api';
 
-const AddressAutocomplete = ({ value, onChange, placeholder = "Enter your location", className = "", required = false }) => {
+const AddressAutocomplete = ({ value, onChange, placeholder = '', className = "", required = false }) => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState(value || '');
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -35,8 +37,9 @@ const AddressAutocomplete = ({ value, onChange, placeholder = "Enter your locati
       const response = await searchLocations({ q: searchText, limit: 5 });
       setSuggestions(response.data?.data || []);
       setShowDropdown(true);
-    } catch (error) {
-      console.error('Error fetching address suggestions:', error);
+    } catch {
+      setSuggestions([]);
+      setShowDropdown(false);
     } finally {
       setLoading(false);
     }
@@ -90,7 +93,8 @@ const AddressAutocomplete = ({ value, onChange, placeholder = "Enter your locati
             // Small delay to allow clicking suggestions before hiding
             setTimeout(() => setShowDropdown(false), 200);
           }}
-          placeholder={placeholder}
+          placeholder={placeholder || t('auth.location')}
+          aria-label={t('common.addressSearchPlaceholder')}
           required={required}
           className="w-full bg-white border border-slate-200 pl-12 pr-12 py-3.5 rounded-xl outline-none focus:border-primary-500 transition-colors font-medium"
         />

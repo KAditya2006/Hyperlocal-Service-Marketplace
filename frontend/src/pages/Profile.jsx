@@ -107,13 +107,15 @@ const Profile = () => {
               </div>
             </div>
           </div>
-          <button 
-            onClick={() => navigate('/profile/edit')}
-            className="w-full md:w-auto px-6 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all premium-shadow"
-          >
-            {t('profile.editProfile')}
-          </button>
-          <LanguageSwitcher className="w-full justify-between md:w-auto" />
+          <div className="flex w-full md:w-auto flex-col sm:flex-row gap-3">
+            <button 
+              onClick={() => navigate('/profile/edit')}
+              className="w-full md:w-auto px-6 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all premium-shadow"
+            >
+              {t('profile.editProfile')}
+            </button>
+            <LanguageSwitcher className="w-full justify-between md:w-auto" />
+          </div>
         </section>
 
         {user?.role !== 'admin' && (

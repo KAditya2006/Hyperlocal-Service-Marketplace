@@ -38,11 +38,4 @@
     <priority>0.3</priority>
   </url>
 
-  <!-- Dynamic Pages -->
-  <url>
-    <loc>https://instantseva.onrender.com/workers/</loc>
-    <lastmod>2026-04-17</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.7</priority>
-  </url>
 </urlset>

@@ -46,6 +46,30 @@ const compareTokenHash = (storedHash, submittedHash) => {
   return stored.length === submitted.length && crypto.timingSafeEqual(stored, submitted);
 };
 
+const sendRegistrationOTPEmail = async (email, otpCode) => {
+  try {
+    await sendEmail({
+      email,
+      subject: 'Email Verification - InstantSeva',
+      message: `Your OTP for email verification is: ${otpCode}. It expires in 10 minutes.`,
+      html: `
+        <div style="font-family: sans-serif; color: #333;">
+          <h1 style="color: #4f46e5;">Welcome to InstantSeva!</h1>
+          <p>Your verification code is: <strong style="font-size: 24px; color: #4f46e5; letter-spacing: 2px;">${otpCode}</strong></p>
+          <p>This code expires in 10 minutes.</p>
+        </div>
+      `
+    });
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production' && error.code === 'SMTP_CONFIG_MISSING') {
+      logger.dev('Registration OTP generated; SMTP is not configured', { email, otp: otpCode });
+      return;
+    }
+
+    throw error;
+  }
+};
+
 // Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -69,7 +93,12 @@ exports.register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: req.t('userExists') });
     }
 
-    const user = await User.create({
+    let user;
+    let workerProfile;
+    let dynamicWorkerRecord;
+    let DynamicWorkerModel;
+
+    user = await User.create({
       name,
       email: normalizedEmail,
       password,
@@ -98,9 +127,9 @@ exports.register = async (req, res, next) => {
         targetCollection = 'general';
       }
 
-      const DynamicWorkerModel = getWorkerModel(targetCollection);
+      DynamicWorkerModel = getWorkerModel(targetCollection);
       
-      await DynamicWorkerModel.create({ 
+      dynamicWorkerRecord = await DynamicWorkerModel.create({ 
         user: user._id, 
         professions: workerProfessions,
         experience: experience || 0, 
@@ -109,7 +138,7 @@ exports.register = async (req, res, next) => {
       });
       
       // Also maintain primary WorkerProfile for general searches (optional, but good for backward compat)
-      await WorkerProfile.create({ 
+      workerProfile = await WorkerProfile.create({ 
         user: user._id, 
         experience: experience || 0, 
         bio: bio || 'Professional service provider',
@@ -119,24 +148,27 @@ exports.register = async (req, res, next) => {
 
     // Generate & Send OTP
     const otpCode = generateOTP();
-    await OTP.create({ email: normalizedEmail, otp: otpCode });
+    const otpRecord = await OTP.create({ email: normalizedEmail, otp: otpCode });
 
     try {
-      await sendEmail({
-        email: user.email,
-        subject: 'Email Verification - InstantSeva',
-        message: `Your OTP for email verification is: ${otpCode}. It expires in 10 minutes.`,
-        html: `
-          <div style="font-family: sans-serif; color: #333;">
-            <h1 style="color: #4f46e5;">Welcome to InstantSeva!</h1>
-            <p>Your verification code is: <strong style="font-size: 24px; color: #4f46e5; letter-spacing: 2px;">${otpCode}</strong></p>
-            <p>This code expires in 10 minutes.</p>
-          </div>
-        `
-      });
+      await sendRegistrationOTPEmail(user.email, otpCode);
     } catch (err) {
-      logger.warn('Email verification OTP sending failed', { email: user.email, error: err.message });
-      // Don't fail the registration if email fails, but notify
+      logger.error('Email verification OTP sending failed; rolling back registration', {
+        email: user.email,
+        error: err.message
+      });
+
+      await Promise.allSettled([
+        OTP.deleteOne({ _id: otpRecord._id }),
+        workerProfile ? WorkerProfile.deleteOne({ _id: workerProfile._id }) : Promise.resolve(),
+        dynamicWorkerRecord && DynamicWorkerModel ? DynamicWorkerModel.deleteOne({ _id: dynamicWorkerRecord._id }) : Promise.resolve(),
+        User.deleteOne({ _id: user._id })
+      ]);
+
+      return res.status(503).json({
+        success: false,
+        message: 'Could not send verification email. Please check SMTP configuration and try signing up again.'
+      });
     }
 
     res.status(201).json({

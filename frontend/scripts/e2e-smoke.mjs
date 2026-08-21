@@ -43,6 +43,7 @@ const api = readFrontend('src/services/api.js');
 });
 
 const bookingController = readProject('backend/controllers/bookingController.js');
+const bookingView = readProject('backend/utils/bookingView.js');
 [
   'BOOKING_OTP_TTL_MS',
   'MAX_BOOKING_OTP_ATTEMPTS',
@@ -51,11 +52,14 @@ const bookingController = readProject('backend/controllers/bookingController.js'
   'tooManyBookingOtpAttempts',
   'bookingOtpExpired'
 ].forEach((token) => {
-  if (!bookingController.includes(token)) failures.push(`Booking OTP safeguard missing: ${token}`);
+  if (!bookingController.includes(token) && !bookingView.includes(token)) {
+    failures.push(`Booking OTP safeguard missing: ${token}`);
+  }
 });
 
 const adminController = readProject('backend/controllers/adminController.js');
-if (!adminController.includes('softDeleteAccountData') || !adminController.includes('isDeleted: true')) {
+const adminAccounts = readProject('backend/utils/adminAccounts.js');
+if (!adminController.includes('softDeleteAccountData') || !adminAccounts.includes('isDeleted: true')) {
   failures.push('Admin delete flow must soft-delete accounts');
 }
 
@@ -63,6 +67,16 @@ const userUpload = readProject('backend/controllers/userController.js');
 const workerUpload = readProject('backend/controllers/workerController.js');
 if (!userUpload.includes('getUploadedFilePayload') || !workerUpload.includes('getUploadedFilePayload')) {
   failures.push('KYC upload controllers must normalize uploaded file URLs');
+}
+
+const sitemap = readFrontend('public/sitemap.xml');
+if (sitemap.includes('/workers/</loc>')) {
+  failures.push('Static sitemap must not include the invalid /workers/ listing route');
+}
+
+const backendApp = readProject('backend/app.js');
+if (!backendApp.includes("app.get('/sitemap.xml'")) {
+  failures.push('Backend must generate sitemap.xml dynamically');
 }
 
 if (failures.length) {

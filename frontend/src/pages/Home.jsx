@@ -61,6 +61,12 @@ const Home = () => {
     navigate(`/search${normalizedQuery ? `?q=${encodeURIComponent(normalizedQuery)}` : ''}`);
   };
 
+  const handleVoiceSearch = React.useCallback((text, voiceContext = {}) => {
+    const normalizedQuery = voiceContext.normalizedQuery || normalizeServiceSearch(text);
+    setQuery(text);
+    navigate(`/search${normalizedQuery ? `?q=${encodeURIComponent(normalizedQuery)}` : ''}`);
+  }, [navigate]);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
@@ -90,22 +96,24 @@ const Home = () => {
                 <Search className="text-slate-400 shrink-0" size={20} />
                 <input 
                   type="text" 
-                  placeholder="What service do you need?" 
+                  placeholder={t('home.servicePlaceholder')}
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="w-full text-slate-900 outline-none text-base sm:text-lg font-medium min-w-0"
                 />
               </div>
               <VoiceSearchButton
-                onTranscript={(text) => setQuery(text)}
+                autoProceed
+                onAutoProceed={handleVoiceSearch}
                 speakText={t('voice.searchingFor', { text: query || t('common.searchServices') })}
+                className="w-full justify-center md:w-auto"
               />
               <div className="w-[2px] h-8 bg-slate-100 hidden md:block" />
               <div className="flex-1 w-full flex items-center gap-3 px-4 py-3">
                 <MapPin className="text-slate-400 shrink-0" size={20} />
                 <input 
                   type="text" 
-                  placeholder="Enter location" 
+                  placeholder={t('home.locationPlaceholder')}
                   className="w-full text-slate-900 outline-none text-base sm:text-lg font-medium min-w-0"
                 />
               </div>
@@ -171,7 +179,7 @@ const Home = () => {
               <img 
                 src="/marketplace-pro.svg" 
                 className="w-full h-full object-cover sm:-rotate-3 scale-110 bg-white" 
-                alt="Professional Service"
+                alt={t('home.professionalImageAlt')}
               />
             </div>
             <div className="hidden sm:block absolute top-[-20px] left-[-20px] w-full h-full border-2 border-primary-500/30 rounded-[60px]" />

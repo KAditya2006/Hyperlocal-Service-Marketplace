@@ -1,4 +1,4 @@
-import SERVICE_KEYWORDS from '../../../shared/serviceKeywords.json';
+import SERVICE_KEYWORDS from '../../../shared/serviceKeywords.json' with { type: 'json' };
 
 const normalize = (value) => String(value || '').trim().toLowerCase();
 

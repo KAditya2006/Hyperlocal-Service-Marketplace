@@ -7,8 +7,9 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "seed": "node scripts/seed.js",
+    "smtp:check": "node scripts/checkSmtp.js",
     "push:keys": "web-push generate-vapid-keys",
-    "test": "node tests/bookingRules.test.js && node tests/chatAccess.test.js && node tests/securityAndUploads.test.js"
+    "test": "node tests/bookingRules.test.js && node tests/chatAccess.test.js && node tests/securityAndUploads.test.js && node tests/serverI18n.test.js && node tests/presence.test.js"
   },
   "keywords": [],
   "author": "",

@@ -6,14 +6,10 @@ const WorkerProfile = require('../models/WorkerProfile');
 const { getPagination } = require('../utils/bookingRules');
 const { canInitiateChat } = require('../utils/chatAccess');
 const createNotification = require('../utils/createNotification');
+const { attachPresence, getId } = require('../utils/presence');
 
 const findUserChat = (chatId, userId) => {
   return Chat.findOne({ _id: chatId, participants: userId });
-};
-
-const getId = (value) => {
-  if (!value) return null;
-  return value._id ? value._id.toString() : value.toString();
 };
 
 const getRecipientIds = (chat, senderId) => {
@@ -34,10 +30,7 @@ const getMessagePayload = (message, chatId) => {
 
 const attachParticipantPresence = (chat, onlineUserIds = new Set()) => {
   const plainChat = chat.toObject ? chat.toObject() : { ...chat };
-  plainChat.participants = (plainChat.participants || []).map((participant) => ({
-    ...participant,
-    isOnline: onlineUserIds.has(getId(participant))
-  }));
+  plainChat.participants = (plainChat.participants || []).map((participant) => attachPresence(participant, onlineUserIds));
   return plainChat;
 };
 
@@ -144,7 +137,7 @@ const emitMessageAndNotifyRecipients = async ({ req, chat, message, notification
 exports.getChats = async (req, res, next) => {
   try {
     const chats = await Chat.find({ participants: req.user.id })
-      .populate('participants', 'name email avatar role')
+      .populate('participants', 'name email avatar role isOnline lastSeenAt presenceUpdatedAt')
       .sort({ updatedAt: -1 });
 
     const onlineUserIds = req.app.get('onlineUserIds') || new Set();

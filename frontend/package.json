@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "check:i18n": "node scripts/check-i18n.mjs",
     "test:ui": "node scripts/check-ui-i18n.mjs",
+    "test:voice": "node scripts/voice-search-smoke.mjs",
     "test:e2e": "node scripts/e2e-smoke.mjs",
     "preview": "vite preview"
   },

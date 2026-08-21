@@ -2,76 +2,25 @@ const User = require('../models/User');
 const WorkerProfile = require('../models/WorkerProfile');
 const Booking = require('../models/Booking');
 const AuditLog = require('../models/AuditLog');
-const Notification = require('../models/Notification');
-const OTP = require('../models/OTP');
-const PasswordReset = require('../models/PasswordReset');
-const PushSubscription = require('../models/PushSubscription');
 const createNotification = require('../utils/createNotification');
 const { getPagination } = require('../utils/bookingRules');
 const escapeRegex = require('../utils/escapeRegex');
 const logger = require('../utils/logger');
 const { syncDynamicWorkerProfile } = require('../utils/syncWorkerProfile');
-
-const ACTIVE_BOOKING_STATUSES = ['pending', 'accepted', 'in_progress'];
-
-const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
-
-const normalizeSkills = (skills) => {
-  if (Array.isArray(skills)) {
-    return skills.map((skill) => String(skill).trim()).filter(Boolean);
-  }
-
-  return String(skills || '')
-    .split(',')
-    .map((skill) => skill.trim())
-    .filter(Boolean);
-};
-
-const getLocationPayload = ({ address, city, pincode }) => ({
-  type: 'Point',
-  coordinates: [0, 0],
-  address: String(address || '').trim(),
-  city: String(city || '').trim(),
-  pincode: String(pincode || '').trim()
-});
-
-const hasActiveBookings = (userId) => {
-  return Booking.exists({
-    status: { $in: ACTIVE_BOOKING_STATUSES },
-    $or: [
-      { user: userId },
-      { worker: userId }
-    ]
-  });
-};
-
-const softDeleteAccountData = async (userId) => {
-  await Promise.all([
-    Notification.deleteMany({ user: userId }),
-    OTP.deleteMany({ user: userId }),
-    PasswordReset.deleteMany({ user: userId }),
-    PushSubscription.deleteMany({ user: userId }),
-    WorkerProfile.findOneAndUpdate(
-      { user: userId },
-      { availabilityStatus: 'Offline', approvalStatus: 'rejected' }
-    )
-  ]);
-
-  await User.findByIdAndUpdate(userId, {
-    isDeleted: true,
-    deletedAt: new Date(),
-    suspendedAt: new Date(),
-    isAdminApproved: false
-  });
-};
+const {
+  normalizeEmail,
+  normalizeSkills,
+  getLocationPayload,
+  hasActiveBookings,
+  softDeleteAccountData
+} = require('../utils/adminAccounts');
 
 exports.getDashboardStats = async (req, res, next) => {
   try {
     const activeUserFilter = { isDeleted: { $ne: true } };
     const totalUsers = await User.countDocuments({ role: 'user', ...activeUserFilter });
     const totalWorkers = await User.countDocuments({ role: 'worker', ...activeUserFilter });
-    
-    // Total pending from both WorkerProfile and User KYC
+
     const workerPending = await WorkerProfile.countDocuments({ approvalStatus: 'pending' });
     const userPending = await User.countDocuments({ 'kyc.status': 'pending', role: 'user', ...activeUserFilter });
     const pendingApprovals = workerPending + userPending;
@@ -90,33 +39,30 @@ exports.getDashboardStats = async (req, res, next) => {
 
 exports.getPendingWorkers = async (req, res, next) => {
   try {
-    // 1. Get Pending Workers
     const activeWorkerUsers = await User.find({ role: 'worker', isDeleted: { $ne: true } }).select('_id').lean();
     const activeWorkerUserIds = activeWorkerUsers.map((user) => user._id);
 
     const workers = await WorkerProfile.find({ approvalStatus: 'pending', user: { $in: activeWorkerUserIds } })
       .populate('user', 'name email phone avatar location')
       .lean();
-    
-    const formattedWorkers = workers.map(w => ({
-      ...w,
+
+    const formattedWorkers = workers.map((worker) => ({
+      ...worker,
       type: 'worker',
-      kyc: w.kyc || {},
-      createdAt: w.createdAt
+      kyc: worker.kyc || {},
+      createdAt: worker.createdAt
     }));
 
-    // 2. Get Pending User KYC
     const users = await User.find({ 'kyc.status': 'pending', role: 'user', isDeleted: { $ne: true } }).lean();
-    const formattedUsers = users.map(u => ({
-      _id: u._id,
-      user: u,
-      kyc: u.kyc,
+    const formattedUsers = users.map((user) => ({
+      _id: user._id,
+      user,
+      kyc: user.kyc,
       type: 'user',
-      createdAt: u.createdAt
+      createdAt: user.createdAt
     }));
 
-    // 3. Combine and Sort by Date
-    const combined = [...formattedWorkers, ...formattedUsers].sort((a, b) => 
+    const combined = [...formattedWorkers, ...formattedUsers].sort((a, b) =>
       new Date(b.createdAt) - new Date(a.createdAt)
     );
 
@@ -265,15 +211,15 @@ exports.createUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: req.t('adminNameEmailPasswordRequired') });
     }
 
-    const normalizedEmail = normalizeEmail(email);
-    const existingUser = await User.findOne({ email: normalizedEmail }).select('_id').lean();
+    const normalizedUserEmail = normalizeEmail(email);
+    const existingUser = await User.findOne({ email: normalizedUserEmail }).select('_id').lean();
     if (existingUser) {
       return res.status(409).json({ success: false, message: req.t('adminUserExists') });
     }
 
     const user = await User.create({
       name: String(name).trim(),
-      email: normalizedEmail,
+      email: normalizedUserEmail,
       password,
       role: 'user',
       phone: String(phone || '').trim(),
@@ -325,15 +271,15 @@ exports.createWorker = async (req, res, next) => {
       });
     }
 
-    const normalizedEmail = normalizeEmail(email);
-    const existingUser = await User.findOne({ email: normalizedEmail }).select('_id').lean();
+    const normalizedWorkerEmail = normalizeEmail(email);
+    const existingUser = await User.findOne({ email: normalizedWorkerEmail }).select('_id').lean();
     if (existingUser) {
       return res.status(409).json({ success: false, message: req.t('adminUserExists') });
     }
 
     const user = await User.create({
       name: String(name).trim(),
-      email: normalizedEmail,
+      email: normalizedWorkerEmail,
       password,
       role: 'worker',
       phone: String(phone || '').trim(),
@@ -477,7 +423,6 @@ exports.approveWorker = async (req, res, next) => {
         await User.findByIdAndUpdate(userId, { isAdminApproved: status === 'approved' });
       }
     } else {
-      // Re-use logic for User model
       result = await User.findByIdAndUpdate(
         workerId,
         {
@@ -491,14 +436,13 @@ exports.approveWorker = async (req, res, next) => {
     }
 
     if (!result) {
-       return res.status(404).json({ success: false, message: req.t('identityNotFound') });
+      return res.status(404).json({ success: false, message: req.t('identityNotFound') });
     }
 
     if (type === 'worker') {
       await syncDynamicWorkerProfile(result);
     }
 
-    // Create Notification for the user
     try {
       await createNotification({
         user: userId,

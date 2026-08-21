@@ -16,10 +16,10 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'as', name: 'Assamese', nativeName: 'অসমীয়া', dir: 'ltr', speech: 'as-IN' },
   { code: 'mai', name: 'Maithili', nativeName: 'मैथिली', dir: 'ltr', speech: 'hi-IN' },
   { code: 'sat', name: 'Santali', nativeName: 'ᱥᱟᱱᱛᱟᱲᱤ', dir: 'ltr', speech: 'hi-IN' },
-  { code: 'ks', name: 'Kashmiri', nativeName: 'کٲشُر', dir: 'ltr', speech: 'ur-IN' },
+  { code: 'ks', name: 'Kashmiri', nativeName: 'کٲشُر', dir: 'rtl', speech: 'ur-IN' },
   { code: 'ne', name: 'Nepali', nativeName: 'नेपाली', dir: 'ltr', speech: 'ne-NP' },
   { code: 'kok', name: 'Konkani', nativeName: 'कोंकणी', dir: 'ltr', speech: 'hi-IN' },
-  { code: 'sd', name: 'Sindhi', nativeName: 'سنڌي', dir: 'ltr', speech: 'hi-IN' },
+  { code: 'sd', name: 'Sindhi', nativeName: 'سنڌي', dir: 'rtl', speech: 'hi-IN' },
   { code: 'doi', name: 'Dogri', nativeName: 'डोगरी', dir: 'ltr', speech: 'hi-IN' },
   { code: 'mni', name: 'Manipuri', nativeName: 'ꯃꯤꯇꯩꯂꯣꯟ', dir: 'ltr', speech: 'hi-IN' },
   { code: 'brx', name: 'Bodo', nativeName: 'बड़ो', dir: 'ltr', speech: 'hi-IN' }

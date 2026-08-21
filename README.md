@@ -1,6 +1,6 @@
-# HyperlocalMarket
+# InstantSeva
 
-Full-stack hyperlocal services marketplace with customer booking, worker KYC/profile management, admin approvals, chat, reviews, audit logs, and notification persistence.
+Full-stack hyperlocal services marketplace with customer booking, worker KYC/profile management, admin approvals, chat, reviews, audit logs, multilingual support, location-aware discovery, and notification persistence.
 
 ## Structure
 
@@ -50,13 +50,14 @@ npm run dev
 
 The frontend defaults to `http://localhost:5173` and the backend defaults to `http://localhost:5000`.
 
-After deployment, check `/api/health` on the deployed URL to confirm database, frontend build, and environment status.
+After deployment, check `/api/health` on the deployed URL to confirm database, frontend build, and environment status. The Render blueprint uses this health endpoint and runs the full CI suite during build.
 
 ## Useful Scripts
 
 ```bash
 npm run lint
 npm run build
+npm run ci
 npm run check:backend
 npm test
 npm run seed --prefix backend

@@ -92,7 +92,7 @@ const Navbar = () => {
   return (
     <nav className="glass sticky top-0 z-50 w-full border-b border-gray-100">
       <div className="w-full px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2 sm:gap-3 min-w-0">
-        <Link to="/" className="shrink-0" aria-label="InstantSeva home">
+        <Link to="/" className="shrink-0" aria-label={t('navbar.instantHome')}>
           <BrandLogo />
         </Link>
 

@@ -63,6 +63,12 @@ const userSchema = new mongoose.Schema({
     default: 'en',
     enum: ['en', 'hi', 'bn', 'te', 'mr', 'ta', 'ur', 'gu', 'kn', 'or', 'ml', 'pa', 'as', 'mai', 'sat', 'ks', 'ne', 'kok', 'sd', 'doi', 'mni', 'brx']
   },
+  isOnline: {
+    type: Boolean,
+    default: false
+  },
+  lastSeenAt: Date,
+  presenceUpdatedAt: Date,
   isDeleted: {
     type: Boolean,
     default: false

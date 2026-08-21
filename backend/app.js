@@ -5,8 +5,9 @@ const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
+const WorkerProfile = require('./models/WorkerProfile');
 const { getMissingEnv, OPTIONAL_SERVICE_GROUPS, REQUIRED_IN_PRODUCTION } = require('./config/validateEnv');
-const { getAllowedOrigins, isAllowedOrigin } = require('./utils/allowedOrigins');
+const { getAllowedOrigins, isAllowedOrigin, normalizeOrigin } = require('./utils/allowedOrigins');
 const languageMiddleware = require('./middleware/languageMiddleware');
 const logger = require('./utils/logger');
 
@@ -36,6 +37,26 @@ const contentSecurityPolicy = isProduction ? {
 app.use(helmet({ contentSecurityPolicy }));
 
 const allowedOrigins = getAllowedOrigins();
+
+const getBaseUrl = (req) => {
+  return normalizeOrigin(
+    process.env.PUBLIC_APP_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    `${req.protocol}://${req.get('host')}`
+  );
+};
+
+const escapeXml = (value) => String(value || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&apos;');
+
+const formatLastMod = (value) => {
+  const date = value ? new Date(value) : new Date();
+  return Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+};
 
 app.use(cors({
   origin(origin, callback) {
@@ -111,10 +132,55 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 if (hasFrontendBuild) {
   const seoStaticFiles = {
-    '/sitemap.xml': { fileName: 'sitemap.xml', contentType: 'application/xml; charset=utf-8' },
     '/robots.txt': { fileName: 'robots.txt', contentType: 'text/plain; charset=utf-8' },
     '/site.webmanifest': { fileName: 'site.webmanifest', contentType: 'application/manifest+json; charset=utf-8' }
   };
+
+  app.get('/sitemap.xml', async (req, res, next) => {
+    try {
+      const baseUrl = getBaseUrl(req);
+      const staticRoutes = [
+        { path: '/', changefreq: 'daily', priority: '1.0' },
+        { path: '/search', changefreq: 'daily', priority: '0.9' },
+        { path: '/login', changefreq: 'monthly', priority: '0.5' },
+        { path: '/signup', changefreq: 'monthly', priority: '0.5' },
+        { path: '/forgot-password', changefreq: 'monthly', priority: '0.3' },
+        { path: '/verify-otp', changefreq: 'monthly', priority: '0.3' }
+      ];
+
+      const approvedWorkers = await WorkerProfile.find({ approvalStatus: 'approved' })
+        .select('user updatedAt')
+        .populate('user', '_id isDeleted updatedAt')
+        .sort({ updatedAt: -1 })
+        .limit(1000)
+        .lean();
+
+      const workerRoutes = approvedWorkers
+        .filter((worker) => worker.user && !worker.user.isDeleted)
+        .map((worker) => ({
+          path: `/workers/${worker.user._id}`,
+          changefreq: 'weekly',
+          priority: '0.8',
+          lastmod: worker.updatedAt || worker.user.updatedAt
+        }));
+
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${[...staticRoutes, ...workerRoutes].map((route) => `  <url>
+    <loc>${escapeXml(`${baseUrl}${route.path}`)}</loc>
+    <lastmod>${formatLastMod(route.lastmod)}</lastmod>
+    <changefreq>${route.changefreq}</changefreq>
+    <priority>${route.priority}</priority>
+  </url>`).join('\n')}
+</urlset>`;
+
+      res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.send(xml);
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   Object.entries(seoStaticFiles).forEach(([route, fileConfig]) => {
     app.get(route, (req, res, next) => {
@@ -139,7 +205,12 @@ if (hasFrontendBuild) {
   });
 } else {
   app.get('/', (req, res) => {
-    res.send('API is running... (Frontend build not found)');
+    res.status(isProduction ? 503 : 200).json({
+      success: !isProduction,
+      message: 'Frontend build not found on this server',
+      service: 'InstantSeva API',
+      frontendBuild: false
+    });
   });
 }
 

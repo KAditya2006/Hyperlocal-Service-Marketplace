@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import AddressAutocomplete from './AddressAutocomplete';
 import { toStoredCoordinates } from '../utils/location';
 
 const ServiceAddressInput = ({ value, onChange }) => {
+  const { t } = useTranslation();
   const [mode, setMode] = useState('search');
 
   const switchMode = (nextMode) => {
@@ -20,14 +22,14 @@ const ServiceAddressInput = ({ value, onChange }) => {
           onClick={() => switchMode('search')}
           className={`rounded-xl px-3 py-2 text-xs font-bold transition-colors ${mode === 'search' ? 'bg-white text-primary-700 premium-shadow' : 'text-slate-500'}`}
         >
-          Search on map
+          {t('common.searchOnMap')}
         </button>
         <button
           type="button"
           onClick={() => switchMode('manual')}
           className={`rounded-xl px-3 py-2 text-xs font-bold transition-colors ${mode === 'manual' ? 'bg-white text-primary-700 premium-shadow' : 'text-slate-500'}`}
         >
-          Enter manually
+          {t('common.enterManually')}
         </button>
       </div>
 
@@ -39,7 +41,7 @@ const ServiceAddressInput = ({ value, onChange }) => {
             address,
             coordinates: coordinates ? toStoredCoordinates(coordinates) : null
           })}
-          placeholder="Search service address"
+          placeholder={t('common.addressSearchPlaceholder')}
           className="w-full"
         />
       ) : (
@@ -47,13 +49,13 @@ const ServiceAddressInput = ({ value, onChange }) => {
           required
           value={value}
           onChange={(event) => onChange({ address: event.target.value, coordinates: null })}
-          placeholder="House number, street, landmark, area, city"
+          placeholder={t('common.addressManualPlaceholder')}
           className="w-full h-28 bg-slate-50 rounded-2xl px-4 py-4 outline-none border border-slate-100 focus:border-primary-500"
         />
       )}
 
       <p className="text-xs font-medium text-slate-400">
-        Map search gives exact directions. Manual address is allowed, but worker will open it as a Google Maps search.
+        {t('common.addressMapHint')}
       </p>
     </div>
   );

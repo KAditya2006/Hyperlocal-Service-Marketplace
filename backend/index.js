@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const { validateEnv } = require('./config/validateEnv');
 const http = require('http');
 const app = require('./app');
@@ -17,6 +18,12 @@ const allowedOrigins = getAllowedOrigins();
 
 // Connect to Database
 connectDB();
+User.updateMany(
+  { isOnline: true },
+  { isOnline: false, presenceUpdatedAt: new Date(), lastSeenAt: new Date() }
+).catch((error) => {
+  logger.warn('Could not reset stale presence state on startup', { error: error.message });
+});
 
 // Create Server
 const server = http.createServer(app);
@@ -79,6 +86,12 @@ io.on('connection', (socket) => {
   onlineUserIds.add(socketUserId);
 
   if (previousSocketCount === 0) {
+    User.findByIdAndUpdate(socketUserId, {
+      isOnline: true,
+      presenceUpdatedAt: new Date()
+    }).catch((error) => {
+      logger.warn('Could not mark user online', { userId: socketUserId, error: error.message });
+    });
     setUserPresence({ userId: socketUserId, isOnline: true });
   }
 
@@ -140,6 +153,14 @@ io.on('connection', (socket) => {
     if (nextSocketCount <= 0) {
       onlineSocketCounts.delete(socketUserId);
       onlineUserIds.delete(socketUserId);
+      const now = new Date();
+      User.findByIdAndUpdate(socketUserId, {
+        isOnline: false,
+        lastSeenAt: now,
+        presenceUpdatedAt: now
+      }).catch((error) => {
+        logger.warn('Could not mark user offline', { userId: socketUserId, error: error.message });
+      });
       setUserPresence({ userId: socketUserId, isOnline: false });
     } else {
       onlineSocketCounts.set(socketUserId, nextSocketCount);

@@ -4,6 +4,10 @@ const getMissingSmtpConfig = () => {
   return ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS'].filter((key) => !process.env[key]);
 };
 
+const isPlaceholderValue = (value = '') => {
+  return /your_|replace_|example|hyperlocal\.com/i.test(String(value));
+};
+
 const sendEmail = async (options) => {
   const missingConfig = getMissingSmtpConfig();
   if (missingConfig.length > 0) {
@@ -13,17 +17,25 @@ const sendEmail = async (options) => {
   }
 
   const smtpPort = Number(process.env.SMTP_PORT);
-  const fromEmail = process.env.FROM_EMAIL || process.env.SMTP_USER;
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpUser = process.env.SMTP_USER;
+  const configuredFromEmail = process.env.FROM_EMAIL;
+  const fromEmail = configuredFromEmail && !isPlaceholderValue(configuredFromEmail)
+    ? configuredFromEmail
+    : smtpUser;
   const fromName = process.env.FROM_NAME || 'InstantSeva';
 
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: smtpHost,
     port: smtpPort,
     secure: smtpPort === 465,
     auth: {
-      user: process.env.SMTP_USER,
+      user: smtpUser,
       pass: process.env.SMTP_PASS
     },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
     tls: {
       // Do not fail on invalid certs
       rejectUnauthorized: false

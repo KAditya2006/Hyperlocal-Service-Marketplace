@@ -13,6 +13,31 @@ const shouldTranslateText = (text) => {
   return value.length <= 180;
 };
 
+const walkNodes = (root, { onElement, onText }) => {
+  if (!root) return;
+
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  let current = walker.currentNode;
+
+  while (current) {
+    if (current.nodeType === Node.ELEMENT_NODE) {
+      const element = current;
+      if (SKIP_TAGS.has(element.tagName) || element.closest('[data-i18n-skip="true"]')) {
+        current = walker.nextSibling();
+        continue;
+      }
+
+      onElement?.(element);
+    }
+
+    if (current.nodeType === Node.TEXT_NODE && !current.parentElement?.closest('[data-i18n-skip="true"]')) {
+      onText?.(current);
+    }
+
+    current = walker.nextNode();
+  }
+};
+
 const translateTextNode = (node, language) => {
   const original = originalTextNodes.get(node) || node.nodeValue;
   if (!shouldTranslateText(original)) return;
@@ -33,28 +58,35 @@ const translateAttributes = (element, language) => {
   });
 };
 
+const restoreTextNode = (node) => {
+  const original = originalTextNodes.get(node);
+  if (!original) return;
+  node.nodeValue = original;
+};
+
+const restoreAttributes = (element) => {
+  ATTRIBUTES.forEach((attribute) => {
+    const dataName = `data-i18n-original-${attribute}`;
+    const original = element.getAttribute(dataName);
+    if (!original) return;
+
+    element.setAttribute(attribute, original);
+    element.removeAttribute(dataName);
+  });
+};
+
 const walkAndTranslate = (root, language) => {
-  if (!root) return;
+  walkNodes(root, {
+    onElement: (element) => translateAttributes(element, language),
+    onText: (node) => translateTextNode(node, language)
+  });
+};
 
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
-  let current = walker.currentNode;
-
-  while (current) {
-    if (current.nodeType === Node.ELEMENT_NODE) {
-      const element = current;
-      if (SKIP_TAGS.has(element.tagName) || element.closest('[data-i18n-skip="true"]')) {
-        current = walker.nextSibling();
-        continue;
-      }
-      translateAttributes(element, language);
-    }
-
-    if (current.nodeType === Node.TEXT_NODE && !current.parentElement?.closest('[data-i18n-skip="true"]')) {
-      translateTextNode(current, language);
-    }
-
-    current = walker.nextNode();
-  }
+const restoreOriginalContent = (root) => {
+  walkNodes(root, {
+    onElement: restoreAttributes,
+    onText: restoreTextNode
+  });
 };
 
 const RuntimeTranslator = ({ children }) => {
@@ -63,16 +95,25 @@ const RuntimeTranslator = ({ children }) => {
   React.useEffect(() => {
     const language = String(i18n.language || 'en').split('-')[0];
     if (!document.body) return undefined;
-    if (language === 'en') {
-      walkAndTranslate(document.body, language);
-      return undefined;
-    }
 
-    let raf = requestAnimationFrame(() => walkAndTranslate(document.body, language));
+    const syncDocumentLanguage = () => {
+      if (language === 'en') {
+        restoreOriginalContent(document.body);
+        return;
+      }
+
+      walkAndTranslate(document.body, language);
+    };
+
+    let raf = requestAnimationFrame(syncDocumentLanguage);
+
+    if (language === 'en') {
+      return () => cancelAnimationFrame(raf);
+    }
 
     const observer = new MutationObserver(() => {
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => walkAndTranslate(document.body, language));
+      raf = requestAnimationFrame(syncDocumentLanguage);
     });
 
     observer.observe(document.body, {

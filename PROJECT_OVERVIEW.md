@@ -406,11 +406,12 @@ Render configuration:
 ```yaml
 services:
   - type: web
-    name: hyperlocal-service-marketplace
+    name: instantseva
     env: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npm run ci
     startCommand: npm start
+    healthCheckPath: /api/health
 ```
 
 ---

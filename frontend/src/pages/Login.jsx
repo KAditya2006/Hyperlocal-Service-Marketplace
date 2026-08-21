@@ -63,7 +63,7 @@ const Login = () => {
       <div className="w-full max-w-md">
         <div className="bg-white p-6 sm:p-8 md:p-12 rounded-3xl md:rounded-[40px] premium-shadow border border-slate-100">
           <div className="text-center mb-8 sm:mb-10">
-            <Link to="/" className="inline-flex justify-center mb-8" aria-label="InstantSeva home">
+            <Link to="/" className="inline-flex justify-center mb-8" aria-label={t('navbar.instantHome')}>
               <BrandLogo />
             </Link>
             <h1 className="text-2xl sm:text-3xl font-bold font-heading text-slate-900 mb-2">{t('auth.welcomeBack')}</h1>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { createReview, getBookings, updateBookingPayment, updateBookingStatus, verifyStartOTP } from '../services/api';
@@ -25,8 +25,6 @@ import {
   Wind,
   Zap
 } from 'lucide-react';
-import TrackingMap from '../components/TrackingMap';
-import BookingDetailsModal from '../components/BookingDetailsModal';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
@@ -35,6 +33,9 @@ import { CATEGORY_METADATA, PROFESSIONS } from '../constants/professions';
 import { getBookingDestination } from '../utils/location';
 import VoiceSearchButton from '../components/VoiceSearchButton';
 import { normalizeServiceSearch } from '../utils/multilingualSearch';
+
+const TrackingMap = React.lazy(() => import('../components/TrackingMap'));
+const BookingDetailsModal = React.lazy(() => import('../components/BookingDetailsModal'));
 
 const ICON_MAP = {
   BookOpen,
@@ -115,6 +116,12 @@ const Dashboard = () => {
     const query = normalizeServiceSearch(serviceQuery.trim());
     navigate(`/search${query ? `?q=${encodeURIComponent(query)}` : ''}`);
   };
+
+  const handleVoiceServiceSearch = React.useCallback((text, voiceContext = {}) => {
+    const query = voiceContext.normalizedQuery || normalizeServiceSearch(text.trim());
+    setServiceQuery(text);
+    navigate(`/search${query ? `?q=${encodeURIComponent(query)}` : ''}`);
+  }, [navigate]);
 
   const fetchBookings = useCallback(async (page = 1) => {
     try {
@@ -203,8 +210,10 @@ const Dashboard = () => {
                 />
               </div>
               <VoiceSearchButton
-                onTranscript={(text) => setServiceQuery(text)}
+                autoProceed
+                onAutoProceed={handleVoiceServiceSearch}
                 speakText={t('voice.searchingFor', { text: serviceQuery || t('dashboard.serviceSearchPlaceholder') })}
+                className="w-full justify-center sm:w-auto"
               />
               <button className="px-5 py-3 rounded-xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-colors">
                 {t('common.search')}
@@ -280,12 +289,14 @@ const Dashboard = () => {
                         <MapPin size={16} className="text-primary-600" />
                         <span>{t('dashboard.liveTracking')}</span>
                       </div>
-                      <TrackingMap
-                        bookingId={booking._id}
-                        destinationLocation={destinationLocation}
-                        destinationAddress={booking.address}
-                        destinationLabel={t('dashboard.destination')}
-                      />
+                      <Suspense fallback={<div className="h-[280px] sm:h-[360px] lg:h-[400px] rounded-3xl border border-slate-100 bg-slate-50 animate-pulse" />}>
+                        <TrackingMap
+                          bookingId={booking._id}
+                          destinationLocation={destinationLocation}
+                          destinationAddress={booking.address}
+                          destinationLabel={t('dashboard.destination')}
+                        />
+                      </Suspense>
                     </div>
                   )}
                 </div>
@@ -348,11 +359,13 @@ const Dashboard = () => {
           )}
         </section>
       </main>
-      <BookingDetailsModal
-        booking={selectedBooking}
-        viewerRole="user"
-        onClose={() => setSelectedBooking(null)}
-      />
+      <Suspense fallback={null}>
+        <BookingDetailsModal
+          booking={selectedBooking}
+          viewerRole="user"
+          onClose={() => setSelectedBooking(null)}
+        />
+      </Suspense>
     </div>
   );
 };

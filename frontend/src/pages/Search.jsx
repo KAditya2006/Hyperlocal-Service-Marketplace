@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import ServiceAddressInput from '../components/ServiceAddressInput';
 import { createBooking, initiateChat, searchWorkers } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Search as SearchIcon } from 'lucide-react';
+import { Search as SearchIcon, Filter, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { getOnboardingMessage } from '../utils/onboarding';
@@ -15,6 +15,11 @@ import SearchEmptyState from '../components/search/SearchEmptyState';
 import WorkerSearchCard from '../components/search/WorkerSearchCard';
 import { getSearchOrigin, getSuggestedServices, getWorkerSkills, isKnownButInactiveService, isListedService } from '../utils/serviceSearch';
 import { getWorkerAvailabilityStatus } from '../utils/workerAvailability';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Modal } from '../components/ui/Modal';
+import { Pagination } from '../components/ui/Pagination';
+import { CardSkeleton } from '../components/ui/Skeleton';
 
 const SearchPage = () => {
   const location = useLocation();
@@ -160,37 +165,59 @@ const SearchPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       <Navbar />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-6 sm:space-y-8">
-        <section>
-          <h1 className="text-3xl sm:text-4xl font-bold font-heading text-slate-900">{t('search.title')}</h1>
-          <p className="text-slate-500 mt-2">{t('search.subtitle')}</p>
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8">
+        {/* Page Header */}
+        <section className="space-y-1">
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+            {t('search.title')}
+          </h1>
+          <p className="text-slate-500 text-xs sm:text-sm">
+            {t('search.subtitle')}
+          </p>
         </section>
 
-        <form onSubmit={fetchWorkers} className="bg-white border border-slate-100 premium-shadow rounded-3xl p-3 sm:p-4 grid lg:grid-cols-[minmax(0,1fr)_auto_180px_180px_auto] gap-3 min-w-0">
-          <div className="flex items-center gap-3 bg-slate-50 rounded-2xl px-4 min-w-0">
-            <SearchIcon size={18} className="text-slate-400" />
+        {/* Filter Bar */}
+        <form
+          onSubmit={fetchWorkers}
+          className="bg-white border border-slate-200/80 elevation-1 rounded-2xl sm:rounded-3xl p-3 sm:p-4 grid lg:grid-cols-[minmax(0,1fr)_auto_160px_160px_auto] gap-3"
+        >
+          <div className="flex items-center gap-3 bg-slate-50 border border-slate-200/60 rounded-xl px-3.5 min-w-0">
+            <SearchIcon size={18} className="text-slate-400 shrink-0" />
             <input
               value={filters.service}
               onChange={(e) => setFilters({ ...filters, service: e.target.value, page: 1 })}
               placeholder={t('search.servicePlaceholder')}
-              className="w-full min-w-0 bg-transparent py-4 outline-none font-medium"
+              className="w-full min-w-0 bg-transparent py-3 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
             />
+            {filters.service && (
+              <button
+                type="button"
+                onClick={() => setFilters({ ...filters, service: '', page: 1 })}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
+
           <VoiceSearchButton
             autoProceed
             onAutoProceed={handleVoiceSearch}
             speakText={t('voice.searchingFor', { text: filters.service || t('search.servicePlaceholder') })}
             className="w-full justify-center min-[420px]:w-auto"
           />
+
           <input
             value={filters.maxPrice}
             onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value, page: 1 })}
             placeholder={t('search.maxPrice')}
             type="number"
-            className="bg-slate-50 rounded-2xl px-4 py-4 outline-none font-medium"
+            className="bg-slate-50 border border-slate-200/60 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
           />
+
           <input
             value={filters.minRating}
             onChange={(e) => setFilters({ ...filters, minRating: e.target.value, page: 1 })}
@@ -199,66 +226,124 @@ const SearchPage = () => {
             min="0"
             max="5"
             step="0.5"
-            className="bg-slate-50 rounded-2xl px-4 py-4 outline-none font-medium"
+            className="bg-slate-50 border border-slate-200/60 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
           />
-          <button className="bg-primary-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-primary-700">
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            className="w-full lg:w-auto px-6"
+          >
             {t('common.search')}
-          </button>
+          </Button>
         </form>
 
+        {/* Results Grid */}
         <section className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
           {loading ? (
-            <div className="md:col-span-2 xl:col-span-3 text-center py-20 text-slate-400 font-bold">{t('search.searching')}</div>
+            <>
+              <CardSkeleton />
+              <CardSkeleton />
+              <CardSkeleton />
+            </>
           ) : workers.length === 0 ? (
-            <SearchEmptyState
-              searchedService={searchedService}
-              searchedServiceIsListed={searchedServiceIsListed}
-              serviceUnavailable={serviceUnavailable}
-              suggestedServices={suggestedServices}
-              onSearchService={searchService}
-              t={t}
-            />
-          ) : workers.map((worker) => (
-            <WorkerSearchCard
-              key={worker._id}
-              worker={worker}
-              onChat={handleChat}
-              onBook={openBooking}
-              t={t}
-            />
-          ))}
+            <div className="md:col-span-2 xl:col-span-3">
+              <SearchEmptyState
+                searchedService={searchedService}
+                searchedServiceIsListed={searchedServiceIsListed}
+                serviceUnavailable={serviceUnavailable}
+                suggestedServices={suggestedServices}
+                onSearchService={searchService}
+                t={t}
+              />
+            </div>
+          ) : (
+            workers.map((worker) => (
+              <WorkerSearchCard
+                key={worker._id}
+                worker={worker}
+                onChat={handleChat}
+                onBook={openBooking}
+                t={t}
+              />
+            ))
+          )}
         </section>
 
+        {/* Pagination */}
         {pagination.pages > 1 && (
-          <div className="flex flex-wrap justify-center gap-3">
-            <button disabled={pagination.page <= 1} onClick={() => setFilters({ ...filters, page: pagination.page - 1 })} className="px-5 py-3 bg-white border border-slate-100 rounded-xl font-bold disabled:opacity-40">{t('common.previous')}</button>
-            <span className="px-5 py-3 text-slate-500 font-bold">{t('common.page', { page: pagination.page, pages: pagination.pages })}</span>
-            <button disabled={pagination.page >= pagination.pages} onClick={() => setFilters({ ...filters, page: pagination.page + 1 })} className="px-5 py-3 bg-white border border-slate-100 rounded-xl font-bold disabled:opacity-40">{t('common.next')}</button>
+          <div className="pt-4">
+            <Pagination
+              page={pagination.page}
+              pages={pagination.pages}
+              onPageChange={(p) => setFilters({ ...filters, page: p })}
+            />
           </div>
         )}
       </main>
 
-      {selectedWorker && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
-          <form onSubmit={handleBookingSubmit} className="bg-white w-full max-w-lg rounded-3xl p-4 sm:p-8 premium-shadow space-y-5 max-h-[92vh] overflow-y-auto">
-            <div>
-              <h2 className="text-2xl font-bold font-heading text-slate-900">{t('search.bookWorker', { name: selectedWorker.user?.name })}</h2>
-              <p className="text-slate-500">{t('search.bookingSubtitle')}</p>
-            </div>
-            <input required value={booking.service} onChange={(e) => setBooking({ ...booking, service: e.target.value })} placeholder={t('search.service')} className="w-full bg-slate-50 rounded-2xl px-4 py-4 outline-none" />
-            <input required value={booking.scheduledDate} onChange={(e) => setBooking({ ...booking, scheduledDate: e.target.value })} type="datetime-local" className="w-full bg-slate-50 rounded-2xl px-4 py-4 outline-none" />
+      {/* Booking Modal */}
+      <Modal
+        isOpen={Boolean(selectedWorker)}
+        onClose={() => setSelectedWorker(null)}
+        title={selectedWorker ? t('search.bookWorker', { name: selectedWorker.user?.name }) : ''}
+        subtitle={t('search.bookingSubtitle')}
+      >
+        {selectedWorker && (
+          <form onSubmit={handleBookingSubmit} className="space-y-4">
+            <Input
+              required
+              label={t('search.service')}
+              value={booking.service}
+              onChange={(e) => setBooking({ ...booking, service: e.target.value })}
+              placeholder={t('search.service')}
+            />
+
+            <Input
+              required
+              type="datetime-local"
+              label="Scheduled Date & Time"
+              value={booking.scheduledDate}
+              onChange={(e) => setBooking({ ...booking, scheduledDate: e.target.value })}
+            />
+
             <ServiceAddressInput
               value={booking.address}
               onChange={({ address, coordinates }) => setBooking({ ...booking, address, coordinates })}
             />
-            <textarea value={booking.additionalNotes} onChange={(e) => setBooking({ ...booking, additionalNotes: e.target.value })} placeholder={t('search.notes')} className="w-full h-28 bg-slate-50 rounded-2xl px-4 py-4 outline-none" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button type="button" onClick={() => setSelectedWorker(null)} className="border border-slate-200 py-3 rounded-2xl font-bold">{t('common.cancel')}</button>
-              <button className="bg-primary-600 text-white py-3 rounded-2xl font-bold">{t('common.sendRequest')}</button>
+
+            <div className="space-y-1.5 text-left">
+              <label className="block text-xs sm:text-sm font-semibold text-slate-700">
+                {t('search.notes')}
+              </label>
+              <textarea
+                value={booking.additionalNotes}
+                onChange={(e) => setBooking({ ...booking, additionalNotes: e.target.value })}
+                placeholder={t('search.notes')}
+                rows={3}
+                className="w-full bg-white border border-slate-200 rounded-xl p-3 text-sm text-slate-900 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setSelectedWorker(null)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                variant="primary"
+              >
+                {t('common.sendRequest')}
+              </Button>
             </div>
           </form>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 };

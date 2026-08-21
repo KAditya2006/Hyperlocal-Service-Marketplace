@@ -1,7 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Bell, Menu, Search, LogOut, X, MessageSquare } from 'lucide-react';
+import {
+  Bell,
+  Menu,
+  Search,
+  LogOut,
+  X,
+  MessageSquare,
+  LayoutDashboard,
+  Briefcase,
+  FileCheck,
+  User
+} from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useTranslation } from 'react-i18next';
 import { getNotifications, markNotificationsRead } from '../services/api';
@@ -205,7 +216,7 @@ const Navbar = () => {
               <Link to="/login" className="px-4 py-2 text-slate-600 hover:text-primary-600 font-medium tracking-wide">
               {t('common.login')}
               </Link>
-              <Link to="/signup" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-semibold premium-shadow transition-all hover:translate-y-[-2px]">
+              <Link to="/signup" className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-semibold premium-shadow transition-all hover:-translate-y-0.5">
               {t('common.getStarted')}
               </Link>
             </div>
@@ -227,12 +238,66 @@ const Navbar = () => {
           {!token && <Link onClick={() => setMobileOpen(false)} to="/signup" className="rounded-xl bg-white/70 px-4 py-3">{t('navbar.becomeWorker')}</Link>}
           {!token && <Link onClick={() => setMobileOpen(false)} to="/login" className="rounded-xl bg-white/70 px-4 py-3">{t('common.login')}</Link>}
           {!token && <Link onClick={() => setMobileOpen(false)} to="/signup" className="rounded-xl bg-primary-600 text-white px-4 py-3">{t('common.getStarted')}</Link>}
-          {token && <Link onClick={() => setMobileOpen(false)} to="/messages" className="flex items-center gap-2 rounded-xl bg-white/70 px-4 py-3"><MessageSquare size={18} /> {t('chat.messages')}</Link>}
-          {user?.role === 'worker' && <Link onClick={() => setMobileOpen(false)} to={user?.canAccessDashboard ? getDashboardPath(user) : '/profile'} className="rounded-xl bg-white/70 px-4 py-3">{user?.canAccessDashboard ? t('common.workerPanel') : t('common.completeProfile')}</Link>}
+          
+          {/* Worker Panel Navigation Menu inside Single Header Hamburger */}
+          {user?.role === 'worker' && user?.canAccessDashboard && (
+            <div className="space-y-1 rounded-2xl bg-white/80 p-2 border border-slate-200/80">
+              <div className="px-3 py-1.5 text-xs font-black uppercase tracking-wider text-primary-700">
+                {t('common.workerPanel', { defaultValue: 'Worker Panel' })}
+              </div>
+              <Link
+                onClick={() => setMobileOpen(false)}
+                to="/worker/dashboard?section=overview"
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-700 hover:bg-primary-50 hover:text-primary-700 font-bold transition-colors"
+              >
+                <LayoutDashboard size={17} />
+                <span>{t('common.dashboard')}</span>
+              </Link>
+              <Link
+                onClick={() => setMobileOpen(false)}
+                to="/worker/dashboard?section=jobs"
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-700 hover:bg-primary-50 hover:text-primary-700 font-bold transition-colors"
+              >
+                <Briefcase size={17} />
+                <span>{t('workerDashboard.myJobs', { defaultValue: 'My Jobs' })}</span>
+              </Link>
+              <Link
+                onClick={() => setMobileOpen(false)}
+                to="/messages"
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-700 hover:bg-primary-50 hover:text-primary-700 font-bold transition-colors"
+              >
+                <MessageSquare size={17} />
+                <span>{t('chat.messages')}</span>
+              </Link>
+              <Link
+                onClick={() => setMobileOpen(false)}
+                to="/worker/dashboard?section=kyc"
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-700 hover:bg-primary-50 hover:text-primary-700 font-bold transition-colors"
+              >
+                <FileCheck size={17} />
+                <span>{t('workerDashboard.kycVerification', { defaultValue: 'KYC Verification' })}</span>
+              </Link>
+              <Link
+                onClick={() => setMobileOpen(false)}
+                to="/worker/dashboard?section=profile"
+                className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-slate-700 hover:bg-primary-50 hover:text-primary-700 font-bold transition-colors"
+              >
+                <User size={17} />
+                <span>{t('workerDashboard.profileSettings', { defaultValue: 'Profile Settings' })}</span>
+              </Link>
+            </div>
+          )}
+          {user?.role === 'worker' && !user?.canAccessDashboard && (
+            <Link onClick={() => setMobileOpen(false)} to="/profile" className="rounded-xl bg-amber-50 text-amber-800 px-4 py-3">
+              {t('common.completeProfile')}
+            </Link>
+          )}
+
           {user?.role === 'user' && <Link onClick={() => setMobileOpen(false)} to={user?.canAccessDashboard ? '/dashboard' : '/profile'} className="rounded-xl bg-white/70 px-4 py-3">{user?.canAccessDashboard ? t('common.dashboard') : t('common.completeProfile')}</Link>}
           {user?.role === 'admin' && <Link onClick={() => setMobileOpen(false)} to="/admin/dashboard" className="rounded-xl bg-white/70 px-4 py-3">{t('common.adminPanel')}</Link>}
-          {token && <Link onClick={() => setMobileOpen(false)} to="/profile" className="rounded-xl bg-white/70 px-4 py-3">{t('common.profile')}</Link>}
-          {token && <button onClick={() => { setMobileOpen(false); logout(); }} className="rounded-xl bg-rose-50 text-rose-600 px-4 py-3 text-left">{t('common.logout')}</button>}
+          {token && user?.role !== 'worker' && <Link onClick={() => setMobileOpen(false)} to="/messages" className="flex items-center gap-2 rounded-xl bg-white/70 px-4 py-3"><MessageSquare size={18} /> {t('chat.messages')}</Link>}
+          {token && <Link onClick={() => setMobileOpen(false)} to="/profile" className="flex items-center gap-2 rounded-xl bg-white/70 px-4 py-3"><User size={18} /> {t('common.profile')}</Link>}
+          {token && <button onClick={() => { setMobileOpen(false); logout(); }} className="rounded-xl bg-rose-50 text-rose-600 px-4 py-3 text-left flex items-center gap-2"><LogOut size={18} /> {t('common.logout')}</button>}
         </div>
       )}
     </nav>

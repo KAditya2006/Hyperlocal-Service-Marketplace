@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { verifyOTP, resendOTP } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +6,8 @@ import { ShieldCheck, ArrowLeft, RefreshCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getPostAuthRedirect } from '../utils/onboarding';
 import { useTranslation } from 'react-i18next';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 
 const VerifyOTP = () => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -87,56 +89,72 @@ const VerifyOTP = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4 sm:p-6">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6">
       <div className="max-w-md w-full">
-        <button onClick={() => navigate('/signup')} className="mb-8 sm:mb-12 flex items-center gap-2 text-slate-500 hover:text-primary-600 transition-colors font-medium">
-          <ArrowLeft size={18} /> {t('auth.backToSignup')}
+        <button
+          onClick={() => navigate('/signup')}
+          className="mb-6 flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 hover:text-primary-600 transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={16} /> {t('auth.backToSignup')}
         </button>
 
-        <div className="text-center mb-10">
-          <div className="w-20 h-20 bg-primary-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-primary-600">
-            <ShieldCheck size={40} />
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-slate-900 mb-2">{t('auth.verifyEmail')}</h1>
-          <p className="text-slate-500 break-words">{t('auth.otpSent')} <span className="text-slate-900 font-semibold">{email}</span></p>
-        </div>
-
-        <form onSubmit={handleVerify} className="space-y-8 sm:space-y-10">
-          <div className="flex justify-between gap-1 sm:gap-2">
-            {otp.map((digit, i) => (
-              <input 
-                key={i}
-                id={`otp-${i}`}
-                type="text"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleChange(e, i)}
-                onKeyDown={(e) => handleKeyDown(e, i)}
-                className="w-10 h-14 sm:w-12 sm:h-16 md:w-14 md:h-[72px] text-center text-xl sm:text-2xl font-bold bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-primary-500 focus:bg-white transition-all"
-              />
-            ))}
+        <Card variant="elevated" padding="lg" className="space-y-6 sm:space-y-8">
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 bg-primary-50 text-primary-600 rounded-2xl flex items-center justify-center mx-auto border border-primary-100/60 shadow-xs">
+              <ShieldCheck size={32} />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                {t('auth.verifyEmail')}
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1 break-words">
+                {t('auth.otpSent')} <span className="text-slate-900 font-bold">{email}</span>
+              </p>
+            </div>
           </div>
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl font-bold transition-all premium-shadow disabled:opacity-50"
-          >
-            {loading ? t('auth.verifying') : t('auth.verifyContinue')}
-          </button>
-        </form>
+          <form onSubmit={handleVerify} className="space-y-6">
+            <div className="flex justify-between gap-1.5 sm:gap-2">
+              {otp.map((digit, i) => (
+                <input 
+                  key={i}
+                  id={`otp-${i}`}
+                  type="text"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleChange(e, i)}
+                  onKeyDown={(e) => handleKeyDown(e, i)}
+                  className="w-10 h-13 sm:w-12 sm:h-15 text-center text-xl sm:text-2xl font-bold bg-white border border-slate-200 rounded-xl outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 transition-all"
+                />
+              ))}
+            </div>
 
-        <div className="mt-12 text-center">
-          <p className="text-slate-500 mb-4">{t('auth.didNotReceive')}</p>
-          <button 
-            onClick={handleResend}
-            disabled={timer > 0}
-            className={`flex items-center gap-2 mx-auto font-bold transition-colors ${timer > 0 ? 'text-slate-300' : 'text-primary-600 hover:text-primary-700'}`}
-          >
-            <RefreshCcw size={18} className={timer > 0 ? '' : 'animate-spin-slow'} />
-            {timer > 0 ? t('auth.resendIn', { seconds: timer }) : t('auth.resendNow')}
-          </button>
-        </div>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              disabled={loading}
+              loading={loading}
+            >
+              {loading ? t('auth.verifying') : t('auth.verifyContinue')}
+            </Button>
+          </form>
+
+          <div className="text-center pt-2 border-t border-slate-100 space-y-2">
+            <p className="text-xs text-slate-500 font-medium">{t('auth.didNotReceive')}</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResend}
+              disabled={timer > 0}
+              iconLeft={RefreshCcw}
+              className="mx-auto"
+            >
+              {timer > 0 ? t('auth.resendIn', { seconds: timer }) : t('auth.resendNow')}
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );

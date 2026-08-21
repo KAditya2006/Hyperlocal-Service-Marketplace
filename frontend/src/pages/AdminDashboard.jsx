@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   approveWorker,
@@ -18,7 +18,8 @@ import {
   CheckCircle,
   ShieldAlert,
   TrendingUp,
-  Users
+  Users,
+  Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -29,10 +30,11 @@ import {
   formatRoleLabel,
   LIST_TABS,
   ManagedAccountModal,
-  StatCard,
   VerificationQueue,
   VerificationReviewModal
 } from '../components/admin/AdminDashboardSections';
+import { StatCard } from '../components/cards/StatCard';
+import { Tabs } from '../components/ui/Tabs';
 
 const AdminDashboard = () => {
   const { t } = useTranslation();
@@ -213,8 +215,11 @@ const AdminDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center font-heading text-slate-400">
-        {t('admin.loadingDashboard')}
+      <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center font-heading text-slate-400 font-bold">
+          {t('admin.loadingDashboard')}
+        </div>
       </div>
     );
   }
@@ -225,33 +230,78 @@ const AdminDashboard = () => {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       <Navbar />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8 sm:space-y-10 min-w-0">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8 min-w-0">
+        {/* Header & Tabs */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 min-w-0">
-          <div className="min-w-0">
-            <h1 className="text-3xl sm:text-4xl font-bold font-heading text-slate-900 tracking-tight">{t('admin.platformControl')}</h1>
-            <p className="text-slate-500 font-medium">{t('admin.platformSubtitle')}</p>
+          <div className="space-y-1 min-w-0">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-50 text-purple-700 text-xs font-bold uppercase tracking-wider border border-purple-100">
+              <Shield size={13} />
+              <span>Platform Administration</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              {t('admin.platformControl')}
+            </h1>
+            <p className="text-slate-500 text-xs sm:text-sm font-medium">{t('admin.platformSubtitle')}</p>
           </div>
-          <div className="flex w-full sm:w-auto max-w-full overflow-x-auto bg-white p-1 rounded-2xl premium-shadow border border-slate-100">
-            <button onClick={() => setActiveTab('overview')} className={`shrink-0 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'overview' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>{t('admin.overviewTab')}</button>
-            <button onClick={() => openDirectory('users')} className={`shrink-0 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'users' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>{t('admin.usersTab')}</button>
-            <button onClick={() => openDirectory('workers')} className={`shrink-0 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'workers' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>{t('admin.workersTab')}</button>
-            <button onClick={() => openDirectory('bookings')} className={`shrink-0 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'bookings' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>{t('admin.bookingsTab')}</button>
-            <button onClick={() => setActiveTab('audit')} className={`shrink-0 px-4 sm:px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${activeTab === 'audit' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-900'}`}>{t('admin.auditTab')}</button>
-          </div>
+
+          <Tabs
+            activeTab={activeTab}
+            onChange={(tab) => {
+              if (LIST_TABS.includes(tab)) {
+                openDirectory(tab);
+              } else {
+                setActiveTab(tab);
+              }
+            }}
+            tabs={[
+              { key: 'overview', label: t('admin.overviewTab') },
+              { key: 'users', label: t('admin.usersTab') },
+              { key: 'workers', label: t('admin.workersTab') },
+              { key: 'bookings', label: t('admin.bookingsTab') },
+              { key: 'audit', label: t('admin.auditTab') }
+            ]}
+          />
         </header>
 
+        {/* Overview Stats */}
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <StatCard icon={<Users className="text-blue-500" />} label={t('admin.totalUsers')} value={stats?.totalUsers} change={t('admin.viewList')} color="bg-blue-50" onClick={() => openDirectory('users')} />
-            <StatCard icon={<TrendingUp className="text-emerald-500" />} label={t('admin.totalWorkers')} value={stats?.totalWorkers} change={t('admin.viewList')} color="bg-emerald-50" onClick={() => openDirectory('workers')} />
-            <StatCard icon={<ShieldAlert className="text-amber-500" />} label={t('admin.pendingKyc')} value={stats?.pendingApprovals} change={pendingWorkers.length > 5 ? t('admin.high') : t('admin.normal')} color="bg-amber-50" onClick={() => document.getElementById('verification-queue')?.scrollIntoView({ behavior: 'smooth' })} />
-            <StatCard icon={<CheckCircle className="text-indigo-500" />} label={t('admin.paidBookings')} value={stats?.paidBookings} change={t('admin.totalCount', { count: stats?.totalBookings || 0 })} color="bg-indigo-50" onClick={() => openDirectory('bookings')} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <StatCard
+              title={t('admin.totalUsers')}
+              value={stats?.totalUsers || 0}
+              icon={Users}
+              trend={t('admin.viewList')}
+              onClick={() => openDirectory('users')}
+            />
+            <StatCard
+              title={t('admin.totalWorkers')}
+              value={stats?.totalWorkers || 0}
+              icon={TrendingUp}
+              trend={t('admin.viewList')}
+              onClick={() => openDirectory('workers')}
+            />
+            <StatCard
+              title={t('admin.pendingKyc')}
+              value={stats?.pendingApprovals || 0}
+              icon={ShieldAlert}
+              trend={pendingWorkers.length > 5 ? t('admin.high') : t('admin.normal')}
+              trendPositive={pendingWorkers.length <= 5}
+              onClick={() => document.getElementById('verification-queue')?.scrollIntoView({ behavior: 'smooth' })}
+            />
+            <StatCard
+              title={t('admin.paidBookings')}
+              value={stats?.paidBookings || 0}
+              icon={CheckCircle}
+              subtitle={t('admin.totalCount', { count: stats?.totalBookings || 0 })}
+              onClick={() => openDirectory('bookings')}
+            />
           </div>
         )}
 
+        {/* Verification Queue in Overview */}
         {activeTab === 'overview' && (
           <VerificationQueue
             workers={filteredWorkers}
@@ -262,6 +312,7 @@ const AdminDashboard = () => {
           />
         )}
 
+        {/* Directory Tables */}
         {LIST_TABS.includes(activeTab) && (
           <AdminDirectory
             activeTab={activeTab}
@@ -280,8 +331,10 @@ const AdminDashboard = () => {
           />
         )}
 
+        {/* Audit Log Tab */}
         {activeTab === 'audit' && <AuditLogSection logs={auditLogs} />}
 
+        {/* Review Modal */}
         <VerificationReviewModal
           worker={selectedWorker}
           rejectionReason={rejectionReason}
@@ -291,6 +344,7 @@ const AdminDashboard = () => {
           onReject={() => handleApproval(selectedWorker?._id, 'rejected')}
         />
 
+        {/* Create Modal */}
         {createModal && (
           <ManagedAccountModal
             type={createModal}
@@ -302,6 +356,7 @@ const AdminDashboard = () => {
           />
         )}
 
+        {/* Delete Modal */}
         {pendingDelete && (
           <DeleteAccountModal
             item={pendingDelete}
@@ -310,7 +365,7 @@ const AdminDashboard = () => {
             onConfirm={confirmDeleteAccount}
           />
         )}
-      </div>
+      </main>
     </div>
   );
 };

@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { forgotPassword, resetPassword } from '../services/api';
-import { ArrowLeft, KeyRound, Mail } from 'lucide-react';
+import { ArrowLeft, KeyRound, Mail, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Card } from '../components/ui/Card';
+import { Input } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
 
 const ForgotPassword = () => {
   const { t } = useTranslation();
@@ -44,36 +47,81 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-md bg-white rounded-3xl border border-slate-100 premium-shadow p-6 sm:p-8 space-y-8">
-        <Link to="/login" className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-primary-600">
+      <div className="w-full max-w-md">
+        <Link
+          to="/login"
+          className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-slate-500 hover:text-primary-600 mb-6 transition-colors"
+        >
           <ArrowLeft size={16} /> {t('forgotPassword.backToLogin')}
         </Link>
 
-        <div>
-          <div className="w-14 h-14 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center mb-5">
-            <KeyRound size={28} />
+        <Card variant="elevated" padding="lg" className="space-y-6 sm:space-y-8">
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center mx-auto border border-primary-100/60 shadow-xs">
+              <KeyRound size={32} />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                {t('forgotPassword.title')}
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+                {t('forgotPassword.subtitle')}
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-heading text-slate-900">{t('forgotPassword.title')}</h1>
-          <p className="text-slate-500 mt-2">{t('forgotPassword.subtitle')}</p>
-        </div>
 
-        <form onSubmit={codeSent ? handleReset : handleRequest} className="space-y-4">
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t('auth.email')} className="w-full bg-slate-50 rounded-2xl pl-12 pr-4 py-4 outline-none" />
-          </div>
+          <form onSubmit={codeSent ? handleReset : handleRequest} className="space-y-4">
+            <Input
+              required
+              type="email"
+              label={t('auth.email')}
+              placeholder={t('auth.email')}
+              iconLeft={Mail}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
 
-          {codeSent && (
-            <>
-              <input required value={token} onChange={(e) => setToken(e.target.value)} placeholder={t('forgotPassword.resetCode')} className="w-full bg-slate-50 rounded-2xl px-4 py-4 outline-none" />
-              <input required type="password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('forgotPassword.newPassword')} className="w-full bg-slate-50 rounded-2xl px-4 py-4 outline-none" />
-            </>
-          )}
+            {codeSent && (
+              <>
+                <Input
+                  required
+                  label={t('forgotPassword.resetCode')}
+                  placeholder={t('forgotPassword.resetCode')}
+                  iconLeft={KeyRound}
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                />
 
-          <button disabled={loading} className="w-full bg-primary-600 text-white py-4 rounded-2xl font-bold disabled:opacity-50">
-            {loading ? t('forgotPassword.pleaseWait') : codeSent ? t('forgotPassword.updatePassword') : t('forgotPassword.sendResetCode')}
-          </button>
-        </form>
+                <Input
+                  required
+                  type="password"
+                  minLength={6}
+                  label={t('forgotPassword.newPassword')}
+                  placeholder={t('forgotPassword.newPassword')}
+                  iconLeft={Lock}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </>
+            )}
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              disabled={loading}
+              loading={loading}
+              className="mt-2"
+            >
+              {loading
+                ? t('forgotPassword.pleaseWait')
+                : codeSent
+                ? t('forgotPassword.updatePassword')
+                : t('forgotPassword.sendResetCode')}
+            </Button>
+          </form>
+        </Card>
       </div>
     </div>
   );

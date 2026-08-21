@@ -1,14 +1,17 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { getCurrentUser, uploadKYC as uploadWorkerKYC, uploadUserKYC } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, CalendarDays, CheckCircle2, Clock, XCircle, ShieldCheck, MapPin, Phone } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, XCircle, ShieldCheck, MapPin, Phone, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { fallbackAvatar, withImageFallback } from '../utils/images';
 import { getDashboardPath, getOnboardingMessage, getVerificationSource } from '../utils/onboarding';
 import LanguageSwitcher from '../components/LanguageSwitcher';
+import { Card } from '../components/ui/Card';
+import { Avatar } from '../components/ui/Avatar';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
 
 const Profile = () => {
   const { t } = useTranslation();
@@ -83,43 +86,60 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
       <Navbar />
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-6 sm:space-y-8 min-w-0">
-        <section className="bg-white rounded-3xl border border-slate-100 premium-shadow p-4 sm:p-8 flex flex-col md:flex-row gap-5 sm:gap-6 md:items-center justify-between min-w-0">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 min-w-0">
-            <img src={user?.avatar || fallbackAvatar} onError={withImageFallback()} alt={user?.name || t('common.profile')} className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl sm:rounded-3xl object-cover" />
-            <div className="min-w-0">
-              <h1 className="text-2xl sm:text-3xl font-bold font-heading text-slate-900 break-words">{user?.name}</h1>
-              <p className="text-slate-500">{user?.email}</p>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className="bg-primary-50 text-primary-700 px-3 py-1 rounded-full text-xs font-bold uppercase">{user?.role}</span>
-                {user?.phone && (
-                  <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
-                    <Phone size={12} /> {user.phone}
-                  </span>
-                )}
-                {user?.location?.city && (
-                  <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
-                    <MapPin size={12} /> {user.location.city} {user.location.pincode && `(${user.location.pincode})`}
-                  </span>
-                )}
+
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-6 sm:space-y-8 min-w-0">
+        {/* User Identity Card */}
+        <Card variant="elevated" padding="lg" className="space-y-6">
+          <div className="flex flex-col md:flex-row gap-5 sm:gap-6 md:items-center justify-between min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 min-w-0">
+              <Avatar
+                src={user?.avatar}
+                alt={user?.name || t('common.profile')}
+                size="xl"
+                isOnline={user?.isOnline}
+                showPresence={true}
+              />
+
+              <div className="space-y-1.5 min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 truncate">
+                  {user?.name}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium">{user?.email}</p>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Badge status={user?.role} size="sm" />
+                  {user?.phone && (
+                    <span className="bg-slate-100 text-slate-700 px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5 border border-slate-200">
+                      <Phone size={11} /> {user.phone}
+                    </span>
+                  )}
+                  {user?.location?.city && (
+                    <span className="bg-slate-100 text-slate-700 px-3 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5 border border-slate-200">
+                      <MapPin size={11} /> {user.location.city} {user.location.pincode && `(${user.location.pincode})`}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex w-full md:w-auto flex-col sm:flex-row gap-3">
-            <button 
-              onClick={() => navigate('/profile/edit')}
-              className="w-full md:w-auto px-6 py-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 transition-all premium-shadow"
-            >
-              {t('profile.editProfile')}
-            </button>
-            <LanguageSwitcher className="w-full justify-between md:w-auto" />
-          </div>
-        </section>
 
+            <div className="flex flex-col sm:flex-row gap-2.5 shrink-0">
+              <Button
+                variant="outline"
+                size="md"
+                onClick={() => navigate('/profile/edit')}
+              >
+                {t('profile.editProfile')}
+              </Button>
+              <LanguageSwitcher />
+            </div>
+          </div>
+        </Card>
+
+        {/* Onboarding / Dashboard Status Banner */}
         {user?.role !== 'admin' && (
-          <section className={`rounded-3xl border p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 ${
+          <div className={`rounded-2xl sm:rounded-3xl border p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 ${
             user?.canAccessDashboard
               ? 'bg-emerald-50 border-emerald-200'
               : 'bg-amber-50 border-amber-200'
@@ -128,108 +148,109 @@ const Profile = () => {
               <div className={`p-3 rounded-2xl ${user?.canAccessDashboard ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
                 {user?.canAccessDashboard ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
               </div>
-              <div>
-                <h2 className={`text-lg font-bold ${user?.canAccessDashboard ? 'text-emerald-950' : 'text-amber-950'}`}>
+              <div className="space-y-0.5">
+                <h2 className={`text-base sm:text-lg font-bold ${user?.canAccessDashboard ? 'text-emerald-950' : 'text-amber-950'}`}>
                   {user?.canAccessDashboard ? t('profile.dashboardUnlocked') : t('profile.dashboardLocked')}
                 </h2>
-                <p className={`font-medium ${user?.canAccessDashboard ? 'text-emerald-700' : 'text-amber-700'}`}>
+                <p className={`text-xs sm:text-sm font-medium ${user?.canAccessDashboard ? 'text-emerald-700' : 'text-amber-700'}`}>
                   {onboardingMessage}
                 </p>
               </div>
             </div>
-            {user?.canAccessDashboard && user?.role !== 'admin' && (
-              <button
+
+            {user?.canAccessDashboard && (
+              <Button
+                variant="success"
+                size="md"
                 onClick={() => navigate(getDashboardPath(user))}
-                className="w-full md:w-auto px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors"
+                className="shrink-0"
               >
                 {t('profile.openDashboard')}
-              </button>
+              </Button>
             )}
+
             {!user?.canAccessDashboard && (
-              <button
+              <Button
+                variant="outline"
+                size="md"
                 onClick={refreshUserStatus}
-                className="w-full md:w-auto px-6 py-3 rounded-xl bg-white border border-amber-200 text-amber-800 font-bold hover:bg-amber-100 transition-colors"
+                className="shrink-0 bg-white"
               >
                 {t('profile.refreshStatus')}
-              </button>
+              </Button>
             )}
-          </section>
+          </div>
         )}
 
-        <section className="bg-white rounded-3xl border border-slate-100 premium-shadow p-6 sm:p-8">
-           <div className="flex items-center gap-3 mb-6">
-              <ShieldCheck className="text-primary-600" />
-              <h2 className="text-2xl font-bold font-heading text-slate-900">{t('profile.accountVerification')}</h2>
-           </div>
-           
-           <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-              <div className="flex flex-col md:flex-row items-start justify-between gap-6 mb-8">
-                <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-2xl ${
-                    verificationStatus === 'verified' ? 'bg-emerald-100 text-emerald-600' : 
-                    verificationStatus === 'rejected' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
-                  }`}>
-                    {verificationStatus === 'verified' ? <CheckCircle2 size={24} /> : 
-                     verificationStatus === 'rejected' ? <XCircle size={24} /> : <Clock size={24} />}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900">
-                      {user?.canAccessDashboard ? t('profile.dashboardApproved') :
-                       verificationStatus === 'verified' ? t('profile.adminApprovalPending') : 
-                       verificationStatus === 'pending' ? t('profile.verificationPending') : 
-                       verificationStatus === 'rejected' ? t('profile.verificationRejected') : t('profile.verificationRequired')}
-                    </h4>
-                    <p className="text-sm text-slate-500 font-medium">
-                       {user?.canAccessDashboard
-                          ? t('profile.verifiedOpenDashboard')
-                          : verificationStatus === 'verified' 
-                          ? t('profile.documentVerifiedAdminPending') 
-                          : verificationStatus === 'pending' 
-                             ? t('profile.reviewingDocuments') 
-                             : verificationStatus === 'rejected'
-                                ? t('profile.rejectionReason', { reason: verification?.rejectionReason || t('profile.clearerDocuments') })
-                                : t('profile.uploadProofToUnlock')}
-                    </p>
-                  </div>
-                </div>
+        {/* KYC Verification Card */}
+        <Card variant="elevated" padding="lg" className="space-y-6">
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck size={22} className="text-primary-600" />
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900">
+              {t('profile.accountVerification')}
+            </h2>
+          </div>
+
+          <div className="bg-slate-50/80 p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/80 space-y-6">
+            <div className="flex items-start gap-4">
+              <div className={`p-2.5 rounded-xl ${
+                verificationStatus === 'verified' ? 'bg-emerald-100 text-emerald-600' : 
+                verificationStatus === 'rejected' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
+              }`}>
+                {verificationStatus === 'verified' ? <CheckCircle2 size={20} /> : 
+                 verificationStatus === 'rejected' ? <XCircle size={20} /> : <Clock size={20} />}
               </div>
-
-              {(!verificationStatus || verificationStatus === 'none' || verificationStatus === 'rejected') && (
-                <form onSubmit={handleKycSubmit} className="space-y-6">
-                   <div>
-                      <label className={`relative border-2 border-dashed rounded-2xl p-8 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${kycFiles.idProof ? 'bg-emerald-50 border-emerald-500' : 'bg-white border-slate-200 hover:border-primary-400'}`}>
-                        <div className={`p-3 rounded-xl ${kycFiles.idProof ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-                           {kycFiles.idProof ? <CheckCircle2 size={24} /> : <CalendarDays size={24} />}
-                        </div>
-                        <span className={`text-sm font-bold ${kycFiles.idProof ? 'text-emerald-700' : 'text-slate-500'}`}>
-                          {kycFiles.idProof ? kycFiles.idProof.name : t('profile.chooseIdProof')}
-                        </span>
-                        <input className="absolute inset-0 opacity-0 cursor-pointer" type="file" onChange={(e) => setKycFiles({...kycFiles, idProof: e.target.files[0]})} />
-                      </label>
-                   </div>
-                   <button 
-                     type="submit" 
-                     disabled={uploading}
-                     className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition-all disabled:opacity-50 premium-shadow"
-                   >
-                     {uploading ? t('profile.uploadingDocuments') : t('profile.submitVerificationDocuments')}
-                   </button>
-                </form>
-              )}
-           </div>
-        </section>
-
-        {!user?.canAccessDashboard && user?.role !== 'admin' && (
-          <section className="bg-white rounded-3xl border border-slate-100 premium-shadow p-6 sm:p-8 text-center">
-            <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-2xl mx-auto flex items-center justify-center mb-4">
-              <ShieldCheck size={28} />
+              <div className="space-y-0.5">
+                <h4 className="font-bold text-slate-900 text-sm sm:text-base">
+                  {user?.canAccessDashboard ? t('profile.dashboardApproved') :
+                   verificationStatus === 'verified' ? t('profile.adminApprovalPending') : 
+                   verificationStatus === 'pending' ? t('profile.verificationPending') : 
+                   verificationStatus === 'rejected' ? t('profile.verificationRejected') : t('profile.verificationRequired')}
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-500 font-medium leading-relaxed">
+                  {user?.canAccessDashboard
+                    ? t('profile.verifiedOpenDashboard')
+                    : verificationStatus === 'verified' 
+                    ? t('profile.documentVerifiedAdminPending') 
+                    : verificationStatus === 'pending' 
+                    ? t('profile.reviewingDocuments') 
+                    : verificationStatus === 'rejected'
+                    ? t('profile.rejectionReason', { reason: verification?.rejectionReason || t('profile.clearerDocuments') })
+                    : t('profile.uploadProofToUnlock')}
+                </p>
+              </div>
             </div>
-            <h2 className="text-2xl font-bold font-heading text-slate-900 mb-2">{t('profile.dashboardWaiting')}</h2>
-            <p className="text-slate-500 max-w-2xl mx-auto font-medium">
-              {t('profile.dashboardWaitingCopy')}
-            </p>
-          </section>
-        )}
+
+            {(!verificationStatus || verificationStatus === 'none' || verificationStatus === 'rejected') && (
+              <form onSubmit={handleKycSubmit} className="space-y-4 pt-2">
+                <label className={`border-2 border-dashed rounded-2xl p-6 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 ${
+                  kycFiles.idProof ? 'bg-emerald-50 border-emerald-500' : 'bg-white border-slate-300 hover:border-primary-400'
+                }`}>
+                  <Upload size={24} className={kycFiles.idProof ? 'text-emerald-600' : 'text-slate-400'} />
+                  <span className={`text-xs sm:text-sm font-bold ${kycFiles.idProof ? 'text-emerald-700' : 'text-slate-600'}`}>
+                    {kycFiles.idProof ? kycFiles.idProof.name : t('profile.chooseIdProof')}
+                  </span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => setKycFiles({ ...kycFiles, idProof: e.target.files[0] })}
+                  />
+                </label>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  disabled={uploading}
+                  loading={uploading}
+                  fullWidth
+                >
+                  {uploading ? t('profile.uploadingDocuments') : t('profile.submitVerificationDocuments')}
+                </Button>
+              </form>
+            )}
+          </div>
+        </Card>
       </main>
     </div>
   );

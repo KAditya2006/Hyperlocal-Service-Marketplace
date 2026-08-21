@@ -11,3 +11,37 @@ services:
         value: 22.20.0
       - key: NODE_ENV
         value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: FROM_NAME
+        value: InstantSeva
+      - key: FROM_EMAIL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: NOMINATIM_USER_AGENT
+        sync: false
+      - key: GEOCODER_COUNTRY_CODES
+        value: in
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_CONTACT_EMAIL
+        sync: false

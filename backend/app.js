@@ -10,6 +10,7 @@ const { getMissingEnv, OPTIONAL_SERVICE_GROUPS, REQUIRED_IN_PRODUCTION } = requi
 const { getAllowedOrigins, isAllowedOrigin, normalizeOrigin } = require('./utils/allowedOrigins');
 const languageMiddleware = require('./middleware/languageMiddleware');
 const logger = require('./utils/logger');
+const sendEmail = require('./utils/sendEmail');
 
 const app = express();
 const frontendDistPath = path.join(__dirname, '../frontend/dist');
@@ -58,6 +59,26 @@ const formatLastMod = (value) => {
   return Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
 };
 
+const maskEmailForHealth = (email = '') => {
+  const [name, domain] = String(email).split('@');
+  if (!name || !domain) return null;
+  return `${name.slice(0, 2)}***@${domain}`;
+};
+
+const getSmtpHealth = () => {
+  const sender = sendEmail.getSmtpSender();
+  const smtpUser = process.env.SMTP_USER;
+
+  return {
+    configured: sendEmail.getMissingSmtpConfig().length === 0,
+    host: process.env.SMTP_HOST || null,
+    port: process.env.SMTP_PORT || null,
+    user: maskEmailForHealth(smtpUser),
+    from: maskEmailForHealth(sender),
+    fromMatchesUser: Boolean(sender && smtpUser && sender === smtpUser)
+  };
+};
+
 app.use(cors({
   origin(origin, callback) {
     if (isAllowedOrigin(origin, allowedOrigins)) {
@@ -92,7 +113,8 @@ app.get('/api/health', (req, res) => {
     frontendBuild: hasFrontendBuild,
     environment: {
       missingRequired: getMissingEnv(REQUIRED_IN_PRODUCTION),
-      missingOptional
+      missingOptional,
+      smtp: getSmtpHealth()
     }
   });
 });

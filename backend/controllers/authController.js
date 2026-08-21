@@ -70,6 +70,22 @@ const sendRegistrationOTPEmail = async (email, otpCode) => {
   }
 };
 
+const getEmailDeliveryErrorMessage = (error) => {
+  if (error.code === 'SMTP_CONFIG_MISSING') {
+    return 'SMTP environment variables are missing on the server. Please configure SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS.';
+  }
+
+  if (error.code === 'EAUTH' || error.responseCode === 535) {
+    return 'Gmail rejected the SMTP login. Please update SMTP_USER and SMTP_PASS in Render with the latest Gmail App Password.';
+  }
+
+  if (['ECONNECTION', 'ETIMEDOUT', 'ESOCKET'].includes(error.code)) {
+    return 'Could not connect to the SMTP server. Please check SMTP_HOST, SMTP_PORT, and network access.';
+  }
+
+  return 'Could not send verification email. Please check SMTP configuration and try signing up again.';
+};
+
 // Generate JWT Token
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -167,7 +183,7 @@ exports.register = async (req, res, next) => {
 
       return res.status(503).json({
         success: false,
-        message: 'Could not send verification email. Please check SMTP configuration and try signing up again.'
+        message: getEmailDeliveryErrorMessage(err)
       });
     }
 

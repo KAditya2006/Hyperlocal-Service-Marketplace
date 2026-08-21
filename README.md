@@ -42,6 +42,23 @@ For deployment, configure these backend environment variables in Render:
 - `NOMINATIM_USER_AGENT`
 - `GEOCODER_COUNTRY_CODES`
 
+Render does not read your local `backend/.env` file. Add these values in the
+Render service dashboard under Environment, or fill the `sync: false` values
+when creating the service from `render.yaml`. Signup OTP email requires the
+SMTP values to be present in Render:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_sender_gmail@gmail.com
+SMTP_PASS=your_16_character_gmail_app_password
+FROM_NAME=InstantSeva
+FROM_EMAIL=your_sender_gmail@gmail.com
+```
+
+After updating Render environment variables, redeploy or restart the Render
+service and check `/api/health`. The SMTP group should show no missing keys.
+
 ## Development
 
 ```bash

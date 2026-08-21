@@ -8,6 +8,13 @@ const isPlaceholderValue = (value = '') => {
   return /your_|replace_|example|hyperlocal\.com/i.test(String(value));
 };
 
+const getSmtpSender = () => {
+  const configuredFromEmail = process.env.FROM_EMAIL;
+  return configuredFromEmail && !isPlaceholderValue(configuredFromEmail)
+    ? configuredFromEmail
+    : process.env.SMTP_USER;
+};
+
 const sendEmail = async (options) => {
   const missingConfig = getMissingSmtpConfig();
   if (missingConfig.length > 0) {
@@ -19,10 +26,7 @@ const sendEmail = async (options) => {
   const smtpPort = Number(process.env.SMTP_PORT);
   const smtpHost = process.env.SMTP_HOST;
   const smtpUser = process.env.SMTP_USER;
-  const configuredFromEmail = process.env.FROM_EMAIL;
-  const fromEmail = configuredFromEmail && !isPlaceholderValue(configuredFromEmail)
-    ? configuredFromEmail
-    : smtpUser;
+  const fromEmail = getSmtpSender();
   const fromName = process.env.FROM_NAME || 'InstantSeva';
 
   const transporter = nodemailer.createTransport({
@@ -54,3 +58,5 @@ const sendEmail = async (options) => {
 };
 
 module.exports = sendEmail;
+module.exports.getMissingSmtpConfig = getMissingSmtpConfig;
+module.exports.getSmtpSender = getSmtpSender;

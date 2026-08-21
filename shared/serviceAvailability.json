@@ -1,0 +1,23 @@
+{
+  "plumber": true,
+  "electrician": true,
+  "home tutors": true,
+  "carpenters": false,
+  "painters": false,
+  "house cleaner": false,
+  "ac repair/service": false,
+  "appliances repair/service": false,
+  "laptop/mobile repair": false,
+  "internet technician": false,
+  "driver": false,
+  "cook": false,
+  "babysitter": false,
+  "caretaker": false,
+  "pharmacist": false,
+  "door/lock repair": false,
+  "tv repair": false,
+  "glass repair": false,
+  "pest control": false,
+  "gardening": false,
+  "home decor": false
+}

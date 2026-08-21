@@ -46,6 +46,7 @@ export const updateAvatar = (formData) => api.put('/user/profile/avatar', formDa
 export const uploadUserKYC = (formData) => api.post('/user/upload-kyc', formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });
+export const getUserPublicProfile = (userId) => api.get(`/user/${userId}/public-profile`);
 
 // Worker APIs
 export const getWorkerProfile = () => api.get('/worker/profile');
@@ -69,6 +70,7 @@ export const approveWorker = (data) => api.post('/admin/approve-worker', data);
 
 // Chat APIs
 export const getChats = () => api.get('/chat');
+export const searchChatContacts = (params) => api.get('/chat/contacts', { params });
 export const getMessages = (chatId, params) => api.get(`/chat/${chatId}`, { params });
 export const initiateChat = (data) => api.post('/chat/initiate', data);
 export const sendTextMessage = (chatId, data) => api.post(`/chat/${chatId}/messages`, data);

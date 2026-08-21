@@ -1,4 +1,4 @@
-import { PROFESSIONS, SERVICE_ALIASES } from '../constants/professions';
+import { PROFESSIONS, ALL_KNOWN_SERVICES, SERVICE_ALIASES } from '../constants/professions';
 
 const SERVICE_LABELS = {
   'ac repair/service': 'AC Repair / Service',
@@ -31,6 +31,14 @@ export const isListedService = (service) => {
   return PROFESSIONS.some((profession) => normalizeService(profession) === normalized);
 };
 
+export const isKnownButInactiveService = (service) => {
+  if (!service.trim()) return false;
+  const normalized = normalizeServiceAlias(service);
+  const isKnown = ALL_KNOWN_SERVICES.some((s) => normalizeService(s) === normalized);
+  const isActive = PROFESSIONS.some((p) => normalizeService(p) === normalized);
+  return isKnown && !isActive;
+};
+
 export const getSuggestedServices = (service) => {
   const normalized = normalizeServiceAlias(service);
   const matches = PROFESSIONS.filter((profession) => {
@@ -44,10 +52,7 @@ export const getSuggestedServices = (service) => {
   const fallback = [
     'plumber',
     'electrician',
-    'house cleaner',
-    'home tutors',
-    'ac repair/service',
-    'appliances repair/service'
+    'home tutors'
   ];
 
   return [...new Set([...(matches.length ? matches : fallback), ...fallback])].slice(0, 8);

@@ -4,8 +4,10 @@ const { getWorkerDetails, searchWorkers } = require('../controllers/marketplaceC
 const { searchLocations } = require('../controllers/locationController');
 const { locationSearchLimiter } = require('../middleware/rateLimiters');
 
+const { customerOrGuestOnly } = require('../middleware/authMiddleware');
+
 router.get('/locations/search', locationSearchLimiter, searchLocations);
-router.get('/workers', searchWorkers);
-router.get('/workers/:workerId', getWorkerDetails);
+router.get('/workers', customerOrGuestOnly, searchWorkers);
+router.get('/workers/:workerId', customerOrGuestOnly, getWorkerDetails);
 
 module.exports = router;

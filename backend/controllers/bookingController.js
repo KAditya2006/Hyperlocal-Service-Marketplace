@@ -8,6 +8,8 @@ const createNotification = require('../utils/createNotification');
 const { generateOTP, sendOTPEmail } = require('../services/otpService');
 const asyncHandler = require('../utils/asyncHandler');
 const { syncDynamicWorkerProfile } = require('../utils/syncWorkerProfile');
+const { normalizeSupportedService } = require('../utils/supportedServices');
+const { normalizeServiceSearch } = require('../utils/serviceKeywords');
 const {
   MAX_BOOKING_OTP_ATTEMPTS,
   attachContactDetails,
@@ -28,6 +30,11 @@ exports.createBooking = asyncHandler(async (req, res) => {
 
   if (!workerId || !service || !scheduledDate || !address) {
     return res.status(400).json({ success: false, message: req.t('bookingRequiredFields') });
+  }
+
+  const supportedService = normalizeSupportedService(service);
+  if (!supportedService) {
+    return res.status(400).json({ success: false, message: req.t('serviceUnavailableNow') });
   }
 
   const parsedScheduledDate = parseFutureScheduledDate(scheduledDate);
@@ -57,13 +64,20 @@ exports.createBooking = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: req.t('workerUnavailableBooking') });
   }
 
+  const workerOffersService = (profile.skills || []).some((skill) => (
+    normalizeSupportedService(normalizeServiceSearch(skill)) === supportedService
+  ));
+  if (!workerOffersService) {
+    return res.status(400).json({ success: false, message: req.t('workerDoesNotOfferService') });
+  }
+
   const serviceCoordinates = normalizeCoordinates(
     serviceLocation?.coordinates || coordinates
   );
   const bookingPayload = {
     user: req.user.id,
     worker: workerId,
-    service,
+    service: supportedService,
     scheduledDate: parsedScheduledDate,
     address,
     additionalNotes,
@@ -93,7 +107,7 @@ exports.createBooking = asyncHandler(async (req, res) => {
     type: 'booking',
     titleKey: 'newBookingRequestTitle',
     messageKey: 'newBookingRequestMessage',
-    messageParams: { name: req.user.name, service },
+    messageParams: { name: req.user.name, service: supportedService },
     entityType: 'Booking',
     entityId: booking._id
   });

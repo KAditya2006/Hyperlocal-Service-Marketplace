@@ -1,23 +1,10 @@
-export const PROFESSIONS = [
-  "plumber",
-  "electrician",
-  "home tutors",
-  "carpenters",
-  "painters",
-  "pharmacist",
-  "ac repair/service",
-  "appliances repair/service",
-  "house cleaner",
-  "door/lock repair",
-  "tv repair",
-  "glass repair",
-  "cook",
-  "babysitter",
-  "caretaker",
-  "driver",
-  "laptop/mobile repair",
-  "internet technician"
-];
+import SERVICE_AVAILABILITY from '../../../shared/serviceAvailability.json' with { type: 'json' };
+
+export const PROFESSIONS = Object.entries(SERVICE_AVAILABILITY)
+  .filter(([, active]) => active)
+  .map(([service]) => service);
+
+export const ALL_KNOWN_SERVICES = Object.keys(SERVICE_AVAILABILITY);
 
 export const SERVICE_ALIASES = {
   pharamascist: "pharmacist",

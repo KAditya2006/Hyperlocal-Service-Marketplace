@@ -8,6 +8,9 @@ import BrandLogo from '../components/BrandLogo';
 import { PROFESSIONS } from '../constants/professions';
 import { useTranslation } from 'react-i18next';
 
+import { useAuth } from '../context/AuthContext';
+import { getPostAuthRedirect } from '../utils/onboarding';
+
 const toStoredCoordinates = (coordinates) => {
   if (!Array.isArray(coordinates) || coordinates.length < 2) return undefined;
   const [lat, lng] = coordinates.map(Number);
@@ -16,6 +19,7 @@ const toStoredCoordinates = (coordinates) => {
 };
 
 const Signup = () => {
+  const { user, token } = useAuth();
   const [formData, setFormData] = useState({ 
     name: '', 
     email: '', 
@@ -31,6 +35,12 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+
+  React.useEffect(() => {
+    if (token && user) {
+      navigate(getPostAuthRedirect(user), { replace: true });
+    }
+  }, [token, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -1,7 +1,7 @@
 import React from 'react';
 import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
-import { CATEGORY_METADATA } from '../constants/professions';
+import { CATEGORY_METADATA, PROFESSIONS } from '../constants/professions';
 import { useTranslation } from 'react-i18next';
 import VoiceSearchButton from '../components/VoiceSearchButton';
 import { normalizeServiceSearch } from '../utils/multilingualSearch';
@@ -40,15 +40,18 @@ const ICON_MAP = {
   Briefcase
 };
 
-const CATEGORIES = Object.entries(CATEGORY_METADATA).slice(0, 10).map(([name, meta]) => {
-  const Icon = ICON_MAP[meta.iconName] || ICON_MAP.Briefcase;
-  return {
-    name: name.charAt(0).toUpperCase() + name.slice(1),
-    icon: <Icon className={meta.iconColor} />,
-    color: meta.color,
-    slug: name
-  };
-});
+const CATEGORIES = PROFESSIONS
+  .filter((name) => CATEGORY_METADATA[name])
+  .map((name) => {
+    const meta = CATEGORY_METADATA[name];
+    const Icon = ICON_MAP[meta.iconName] || ICON_MAP.Briefcase;
+    return {
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      icon: <Icon className={meta.iconColor} />,
+      color: meta.color,
+      slug: name
+    };
+  });
 
 const Home = () => {
   const navigate = useNavigate();

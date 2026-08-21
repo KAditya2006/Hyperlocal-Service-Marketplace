@@ -3,30 +3,26 @@ const getRequesterId = (requester) => requester?._id || requester?.id;
 const canInitiateChat = async ({
   requester,
   recipientId,
-  workerProfileExists,
-  bookingExists
+  userExists
 }) => {
   if (!requester || !recipientId) return false;
-  if (requester.role === 'admin') return true;
 
-  if (requester.role === 'user') {
-    if (!workerProfileExists) return false;
-    return Boolean(await workerProfileExists({
-      user: recipientId,
-      approvalStatus: 'approved'
-    }));
+  const requesterId = String(getRequesterId(requester));
+  const targetId = String(recipientId);
+
+  // Cannot chat with self
+  if (requesterId === targetId) return false;
+
+  const allowedRoles = ['user', 'worker', 'admin'];
+  if (!allowedRoles.includes(requester.role)) return false;
+
+  if (typeof userExists === 'function') {
+    const exists = await userExists(targetId);
+    if (!exists) return false;
   }
 
-  if (requester.role === 'worker') {
-    const requesterId = getRequesterId(requester);
-    if (!requesterId || !bookingExists) return false;
-    return Boolean(await bookingExists({
-      worker: requesterId,
-      user: recipientId
-    }));
-  }
-
-  return false;
+  // All role combinations supported: User<->User, User<->Worker, Worker<->User, Worker<->Worker, Admin<->Any
+  return true;
 };
 
 module.exports = {

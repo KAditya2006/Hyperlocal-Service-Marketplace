@@ -2,7 +2,7 @@
 
 InstantSeva is a full-stack hyperlocal service marketplace that connects customers with nearby verified service professionals such as plumbers, electricians, tutors, cleaners, AC technicians, drivers, cooks, caretakers, and other local workers.
 
-The project is built as a production-oriented marketplace with customer booking, worker onboarding, admin verification, real-time chat, live availability, location-aware worker discovery, multilingual support, push notifications, SEO support, and verification-driven trust flows.
+The project is built as a production-oriented marketplace with customer booking, worker onboarding, admin verification, real-time chat, live availability, location-aware worker discovery, multilingual support, push notifications, SEO support, centralized service availability controls, strict role-based access control (RBAC), and verification-driven trust flows.
 
 ---
 
@@ -12,30 +12,35 @@ The main goal of InstantSeva is to make local services easy to discover, book, v
 
 The platform supports three main roles:
 
-- Customer: searches services, chats with workers, books jobs, tracks accepted services, verifies OTPs, and reviews completed work.
-- Worker: completes profile and KYC, manages skills/pricing/availability, accepts or rejects jobs, chats with customers, and completes jobs through OTP verification.
-- Admin: verifies users/workers, manages accounts, reviews uploaded documents, monitors bookings, reviews audit logs, and controls marketplace quality.
+- **Customer (`user`)**: searches services, chats with workers or other users, books jobs, tracks accepted services, verifies OTPs, and reviews completed work.
+- **Worker (`worker`)**: completes profile and KYC, manages skills/pricing/availability, accepts or rejects jobs, chats with customers or other workers, and completes jobs through OTP verification. Workers operate in a dedicated workspace and do not receive customer service-discovery or booking interfaces.
+- **Admin (`admin`)**: verifies users/workers, manages accounts, reviews uploaded documents, monitors bookings, reviews audit logs, manages platform settings, and controls marketplace quality.
 
 ---
 
 ## 2. Core Features
 
-### Public Website
+### Public Website & Service Discovery
 
 - Responsive home page for desktop, tablet, and mobile.
-- Public service categories and service discovery.
-- Search page available before login.
+- Public service categories and service discovery for guests and customers.
+- Centralized service availability system ensuring only active services (Home Tutor, Electrician, Plumber) are displayed and bookable.
+- Search page available before login for customers and guests.
 - Public worker profile preview.
 - SEO metadata, sitemap, robots file, Open Graph data, and structured data.
 - Public users can explore services, but booking and chat require login and profile approval.
+- Role isolation: Logged-in workers and admins are automatically redirected to their respective dashboards when visiting public discovery routes.
 
-### Authentication
+### Authentication & Role-Based Access Control (RBAC)
 
-- User and worker registration.
-- Email OTP verification.
+- User and worker registration with email OTP verification.
 - Login with JWT authentication.
 - Forgot password and reset password flow.
-- Protected routes for user, worker, and admin areas.
+- Strict role protection on both frontend routes and backend APIs:
+  - `CustomerOrGuestRoute`: Guards `/`, `/search`, `/workers/:workerId` (redirects workers to `/worker/dashboard` and admins to `/admin/dashboard`).
+  - `ProtectedRoute`: Role-enforced routing (`/dashboard/*` for users, `/worker/dashboard/*` for workers, `/admin/dashboard/*` for admins).
+  - Already-authenticated users visiting `/login` or `/signup` are redirected to their post-auth dashboard.
+  - Backend authorization: `customerOrGuestOnly` blocks workers from calling customer marketplace discovery endpoints; `authorize('user')` blocks non-customers from booking APIs; `authorize('worker')` and `authorize('admin')` guard their respective controllers.
 - Dashboard access gate based on profile completion and admin approval.
 
 ### Customer Flow
@@ -43,10 +48,10 @@ The platform supports three main roles:
 1. Register and verify email.
 2. Complete profile and upload KYC document.
 3. Wait for admin verification.
-4. Access dashboard after approval.
-5. Search workers by service and location.
-6. View worker availability and online status.
-7. Chat with eligible workers.
+4. Access customer dashboard after approval.
+5. Search workers by active service (Home Tutor, Electrician, Plumber) and location.
+6. View worker availability and online presence.
+7. Chat with workers or other users through persistent real-time messaging.
 8. Book a service with address, location, schedule, and notes.
 9. Track accepted booking details.
 10. Give Start OTP to begin the job.
@@ -59,42 +64,87 @@ The platform supports three main roles:
 2. Complete worker profile with skills, bio, pricing, and experience.
 3. Upload KYC document.
 4. Wait for admin approval.
-5. Access worker dashboard after approval.
-6. Set availability status.
-7. Receive booking requests.
+5. Access dedicated worker dashboard after approval.
+6. Set availability status (Available / Busy / Offline).
+7. Receive booking requests with customer details and service destination.
 8. Accept or reject jobs.
-9. Chat with customers.
-10. Use customer OTP to start/complete service.
-11. Track job history and booking details.
+9. Chat directly with customers or other workers.
+10. Use customer OTP to start and complete services.
+11. Track earnings, completed jobs, rating statistics, and job history.
 
 ### Admin Flow
 
-- View dashboard statistics.
+- View dashboard statistics (users, workers, pending KYC, bookings, revenue).
 - Open clickable user, worker, and booking directories.
 - Add users and workers from admin dashboard.
 - Soft-delete/suspend users and workers.
-- Review KYC queue.
-- Preview uploaded KYC documents inside the admin modal.
+- Review KYC queue with document preview modal.
 - Approve or reject identity verification.
-- View booking records.
+- View booking records and live status.
 - View audit logs for important platform actions.
+
+### Real-Time Persistent Chat & Messaging System
+
+- **Full Relationship Matrix**:
+  - `User ↔ User` ✅
+  - `User ↔ Worker` ✅
+  - `Worker ↔ User` ✅
+  - `Worker ↔ Worker` ✅
+  - `Admin Support Chats` ✅
+  - Self-chat is blocked.
+- **Booking-Independent**: Users and workers can chat at any time without requiring an active booking.
+- **Persistent Storage**: All conversations (`Chat`) and messages (`Message`) are stored in MongoDB with timestamps, delivered status, and read status. Full conversation history survives logout and re-login.
+- **Conversation Deduplication**: Opening or starting a chat with an existing contact automatically resumes the existing conversation thread.
+- **`+ New Chat` Modal & Professional Worker Selection UI**:
+  - Allows searching registered users and workers by name, phone, email, and service/skills (e.g. searching "electrician" matches electricians).
+  - Role filter tabs (`All`, `Users`, `Workers`).
+  - **Worker Result Cards**: Displays profile avatar, online presence dot, name, `Worker` badge, availability status (`Available`, `Busy`, `Offline`), primary profession badge (e.g., `⚡ Electrician`, `🔧 Plumber`, `📚 Home Tutor`), rating (`⭐ 4.8 (126 reviews)` or `⭐ New`), and years of experience.
+  - **User Result Cards**: Displays clean card with avatar, presence dot, name, `User` role badge, and contact information without irrelevant worker metrics.
+- **Role Badges**: Clear badges (`User`, `Worker`, `Admin`) shown in conversation list and active chat header.
+- **Unread Message Tracking**: Dynamic unread badges in conversation list; automatically marked as read upon viewing.
+- **Real-Time Synchronization**: Powered by Socket.IO for instant message delivery, double-tick receipts (`sent`, `delivered`, `read`), and online presence dots.
+- **User ↔ User Profile & Completed Service History**:
+  - In User ↔ User conversations, User A can click User B's name or the "View Profile" action button to open User B's public profile modal.
+  - Displays safe public info: Profile avatar, presence indicator, name, `User` role badge, and member since date.
+  - **Completed Service History**: Displays a clean summary of services taken by User B (e.g. `⚡ Electrician - Amit Kumar`, `🔧 Plumber - Rahul Sharma`), completion date, worker rating, and status (`Completed`).
+  - **Direct "Discuss" Action**: User A can click "Discuss" on any service history entry to instantly ask User B about their experience with that worker in the chat.
+  - **Strict Privacy**: Full addresses, GPS coordinates, payment amounts, payment methods, OTPs, and private booking notes are strictly excluded on the backend.
+  - **Authorization**: Access to another customer's public profile is restricted to active conversation partners and platform admins.
+- **Media Support**: Supports sending both text messages and images (via Cloudinary).
+- **Integrated Access Points**: Available in Customer Dashboard navigation bar and Quick Chat banner, Worker Dashboard sidebar, Navbar icon, and direct "Chat with Worker/Customer" buttons on booking cards.
 
 ---
 
-## 3. Technology Stack
+## 3. Central Service Availability System
+
+InstantSeva includes a centralized configuration to control which services are active across the platform:
+
+- **Central Source of Truth**: [`shared/serviceAvailability.json`](file:///d:/Projects/Antigravity/Startup/shared/serviceAvailability.json)
+- **Currently Active Services**:
+  1. `plumber` (`active: true`)
+  2. `electrician` (`active: true`)
+  3. `home tutors` (`active: true`)
+- **Inactive / Future Services**: All other services (`carpenters`, `ac repair/service`, `painters`, `house cleaner`, etc.) are set to `false`. Their profile metadata, schemas, and translations are preserved for future activation.
+- **Backend Enforcement**: [`backend/utils/supportedServices.js`](file:///d:/Projects/Antigravity/Startup/backend/utils/supportedServices.js) and [`backend/controllers/marketplaceController.js`](file:///d:/Projects/Antigravity/Startup/backend/controllers/marketplaceController.js) derive active services dynamically and return `serviceUnavailable: true` when a user searches for an inactive known service.
+- **Frontend Enforcement**: Home page category grid, Dashboard service cards, and Search empty state differentiate between unavailable known services (showing an availability warning + suggested active services) vs unknown search terms.
+- **Activation Procedure**: To activate a service in the future, change its boolean value in `shared/serviceAvailability.json` from `false` to `true` and deploy.
+
+---
+
+## 4. Technology Stack
 
 ### Frontend
 
 - React 19 for UI.
 - Vite for development and production builds.
 - Tailwind CSS 4 for styling.
-- React Router for routing.
+- React Router for routing and role-based guards.
 - Axios for API communication.
 - React Context for authentication state.
 - React Hot Toast for UI notifications.
-- Socket.IO client for real-time chat and presence.
+- Socket.IO client for real-time chat, notifications, and presence.
 - Leaflet and React-Leaflet for map and location UI.
-- i18next and react-i18next for multilingual support.
+- i18next and react-i18next for multilingual support (22 scheduled Indian languages).
 - Lucide React for icons.
 - Framer Motion for UI animation.
 
@@ -102,10 +152,10 @@ The platform supports three main roles:
 
 - Node.js with Express.
 - MongoDB with Mongoose.
-- Socket.IO for real-time communication.
+- Socket.IO for real-time messaging, status updates, and live presence.
 - JWT authentication.
 - bcrypt password hashing.
-- Multer and Cloudinary for media uploads.
+- Multer and Cloudinary for media and KYC uploads.
 - Nodemailer for email and OTP delivery.
 - Web Push with VAPID keys for browser notifications.
 - Helmet and CORS for security headers and origin protection.
@@ -113,24 +163,25 @@ The platform supports three main roles:
 
 ### Shared Code
 
-- `shared/serviceKeywords.json` contains multilingual service keyword mappings used by both frontend and backend search logic.
+- `shared/serviceAvailability.json`: Central source of truth for active vs inactive services.
+- `shared/serviceKeywords.json`: Multilingual service keyword mappings used by frontend and backend search logic.
 
 ---
 
-## 4. Project Structure
+## 5. Project Structure
 
 ```text
 Startup/
   backend/
     config/          Backend configuration: database, Cloudinary, env validation.
-    controllers/     API business logic for auth, admin, booking, chat, user, worker, marketplace.
-    middleware/      Auth, role checks, language handling, rate limiters.
-    models/          MongoDB schemas.
-    routes/          Express route definitions.
+    controllers/     API business logic for auth, admin, booking, chat, user, worker, marketplace, location.
+    middleware/      Auth, role checks, customerOrGuestOnly, language handling, rate limiters.
+    models/          MongoDB schemas (User, WorkerProfile, Booking, Chat, Message, Review, Notification, etc.).
+    routes/          Express route definitions (auth, admin, booking, chat, user, worker, marketplace).
     scripts/         Seed and admin helper scripts.
     services/        OTP, push notifications, location services.
-    tests/           Backend unit and smoke tests.
-    utils/           Reusable backend helpers.
+    tests/           Backend unit and smoke tests (bookingRules, chatAccess, securityAndUploads, serverI18n, presence).
+    utils/           Reusable backend helpers (supportedServices, chatAccess, userAccess, presence, etc.).
     app.js           Express app setup.
     index.js         HTTP and Socket.IO server entry point.
 
@@ -138,17 +189,18 @@ Startup/
     public/          Static assets, SEO files, manifest.
     scripts/         Frontend integrity and smoke checks.
     src/
-      components/    Reusable UI components.
-      constants/     Static app constants.
+      components/    Reusable UI components (Navbar, BrandLogo, TrackingMap, SearchEmptyState, etc.).
+      constants/     Static app constants (professions derived from shared config).
       context/       Auth context and global state.
-      i18n/          Translation setup and locale files.
-      pages/         Route-level pages.
-      services/      Axios API client.
-      utils/         Client helpers for images, search, presence, formatters.
+      i18n/          Translation setup and 22 locale JSON files.
+      pages/         Route-level pages (Home, Search, WorkerProfile, Dashboard, WorkerDashboard, AdminDashboard, Chat, Profile, etc.).
+      services/      Axios API client and Socket.IO connection manager.
+      utils/         Client helpers for images, search, multilingual keywords, onboarding, presence, formatters, workerAvailability.
     vite.config.js   Vite configuration.
 
   shared/
-    serviceKeywords.json
+    serviceAvailability.json   Central service status configuration.
+    serviceKeywords.json       Multilingual keyword dictionary.
 
   package.json
   render.yaml
@@ -158,84 +210,129 @@ Startup/
 
 ---
 
-## 5. Frontend Pages
+## 6. Frontend Pages & Routing
 
-The frontend currently includes these main pages:
+The frontend includes these main pages:
 
-- `Home.jsx`: public landing page and service discovery entry.
-- `Search.jsx`: service search and worker listing.
-- `WorkerProfile.jsx`: public worker detail and booking page.
-- `Signup.jsx`: registration.
-- `Login.jsx`: login.
-- `VerifyOTP.jsx`: email OTP verification.
-- `ForgotPassword.jsx`: password reset request.
-- `Dashboard.jsx`: customer dashboard.
-- `WorkerDashboard.jsx`: worker dashboard.
-- `AdminDashboard.jsx`: admin control panel.
-- `Chat.jsx`: real-time messaging.
-- `Profile.jsx`: profile completion and KYC.
-- `EditProfile.jsx`: profile editing.
-- `NotFound.jsx`: fallback page.
+- `Home.jsx`: Public landing page and service discovery (guarded by `CustomerOrGuestRoute`).
+- `Search.jsx`: Service search and worker listing (guarded by `CustomerOrGuestRoute`).
+- `WorkerProfile.jsx`: Worker detail and booking page (guarded by `CustomerOrGuestRoute`).
+- `Signup.jsx`: User/Worker registration (redirects authenticated users to their dashboard).
+- `Login.jsx`: User/Worker/Admin login (redirects authenticated users to their dashboard).
+- `VerifyOTP.jsx`: Email OTP verification.
+- `ForgotPassword.jsx`: Password reset request.
+- `Dashboard.jsx`: Customer dashboard with navigation bar and Quick Chat CTA (`ProtectedRoute role="user"`).
+- `WorkerDashboard.jsx`: Worker dashboard with sidebar chat navigation (`ProtectedRoute role="worker"`).
+- `AdminDashboard.jsx`: Admin control panel (`ProtectedRoute role="admin"`).
+- `Chat.jsx`: Persistent real-time messaging for authenticated users and workers (`ProtectedRoute` available at `/messages`, `/chat`, and `/chat/:chatId`).
+- `Profile.jsx`: Profile completion, KYC upload, and onboarding status.
+- `EditProfile.jsx`: Profile and avatar editing.
+- `NotFound.jsx`: Role-aware 404 fallback page.
 
 ---
 
-## 6. Backend API Areas
+## 6.1. InstantSeva Global UI Design System
+
+A centralized, responsive, production-quality UI design system established for the entire application:
+
+- **Design Tokens & Theme (`frontend/src/index.css`, `frontend/src/constants/designTokens.js`)**:
+  - **Colors**: Primary Violet/Indigo palette (`#7c3aed` primary CTA), crisp slate neutrals (`slate-50` background to `slate-900` text), and semantic status colors (Emerald, Amber, Rose, Blue).
+  - **Elevations**: 5-level elevation system (`elevation-0`, `elevation-1`, `elevation-2`, `elevation-3`, `elevation-modal`).
+  - **Typography**: Dual-font stack (`Outfit` for headings, `Inter` for body) with full multilingual and Indic script support.
+  - **Mobile Touch Standards**: Minimum 44px touch targets across all interactive controls.
+- **Atomic UI Primitives (`frontend/src/components/ui/`)**:
+  - `Button.jsx`: Variants (`primary`, `secondary`, `outline`, `ghost`, `danger`, `success`, `link`), sizes (`sm`, `md`, `lg`, `icon`), loading spinner, focus-ring.
+  - `Input.jsx`: Form inputs with accessible labels, helper text, error messages, and icon slots.
+  - `SearchInput.jsx`: Universal search input with voice search trigger, clear button, and loader.
+  - `Select.jsx` & `Textarea.jsx`: Styled form inputs.
+  - `Badge.jsx`: Standardized status badges with semantic icons and dots.
+  - `Rating.jsx`: Star rating score display and interactive rating mode.
+  - `Card.jsx`: Multi-variant container card (`flat`, `elevated`, `subtle`, `interactive`).
+  - `Avatar.jsx`: User/Worker avatars with live presence dots and fallbacks.
+  - `Modal.jsx` & `Drawer.jsx`: Accessible modal dialogs with mobile bottom-sheet behavior and slide-over drawers.
+  - `Tabs.jsx`: Pill and underline tab bars.
+  - `Skeleton.jsx`: Shimmer skeleton loading components.
+  - `EmptyState.jsx` & `ErrorState.jsx`: Standard empty and error state screens with CTAs.
+  - `Pagination.jsx`: Accessible pagination controls.
+  - `Table.jsx`: Clean desktop data tables.
+- **Domain-Specific Cards (`frontend/src/components/cards/`)**:
+  - `ServiceCard.jsx`: Service discovery card highlighting active services (`Home Tutor`, `Electrician`, `Plumber`).
+  - `WorkerCard.jsx`: Worker card with avatar, presence dot, ratings, skills, availability, and direct actions.
+  - `StatCard.jsx`: Metric display cards with trend indicators.
+  - `BookingCard.jsx`: Booking lifecycle card with status badges, partner info, and OTP chips.
+  - `ChatListItem.jsx` & `ChatBubble.jsx`: Standardized messaging cards with read/delivered status receipts.
+- **Responsive Layout Shells (`frontend/src/components/layout/`)**:
+  - `AppHeader.jsx`: Universal top navigation header with logo, language selector, and user menu.
+  - `DashboardSidebar.jsx`: Collapsible desktop sidebar with role-isolated navigation items.
+  - `MobileBottomNav.jsx`: Dedicated mobile bottom navigation bar with role-specific tabs.
+  - `DashboardLayout.jsx`: Complete responsive shell integrating sidebar, header, and content.
+
+---
+
+## 7. Backend API Areas
 
 Main route groups:
 
-- `/api/auth`: registration, login, current user, OTP verification, password reset.
-- `/api/user`: customer profile, avatar upload, user KYC upload.
-- `/api/worker`: worker profile, worker KYC upload, availability/profile updates.
-- `/api/marketplace`: public worker/service discovery and worker details.
-- `/api/bookings`: booking creation, status update, payment status, review, OTP verification.
-- `/api/chat`: chat creation, messages, read receipts, image messages.
-- `/api/admin`: stats, account management, identity approval, bookings, audit logs.
-- `/api/notifications`: in-app notifications, push subscription, read status.
-- `/api/health`: deployment and environment health check.
+- `/api/auth`: Registration, login, current user, OTP verification, password reset.
+- `/api/user`: Customer profile update, avatar upload, customer KYC upload (`authorize('user')`), and `GET /api/user/:userId/public-profile` (authorized public profile & completed service history for chat participants).
+- `/api/worker`: Worker profile, worker KYC upload, availability/profile updates (`authorize('worker')`).
+- `/api/marketplace`: Public worker/service discovery and worker details (`customerOrGuestOnly` blocks workers).
+- `/api/bookings`: Booking creation (`authorize('user')`), status updates, payment status, reviews, OTP verification.
+- `/api/chat`:
+  - `GET /api/chat`: Get all user conversations with unread counts and presence.
+  - `GET /api/chat/contacts`: Search registered users & workers for new chat (includes populated worker professional information and skill-based matching).
+  - `GET /api/chat/:chatId`: Get messages with pagination and mark as read.
+  - `POST /api/chat/initiate`: Create or retrieve deduplicated conversation.
+  - `POST /api/chat/:chatId/messages`: Send validated text message.
+  - `POST /api/chat/upload-image`: Send image message.
+  - `PATCH /api/chat/:chatId/read`: Mark conversation messages as read.
+- `/api/admin`: Stats, account management, identity approval, bookings, audit logs (`authorize('admin')`).
+- `/api/notifications`: In-app notifications, push subscription, read status.
+- `/api/health`: Deployment and environment health check.
 
 ---
 
-## 7. Database Models
+## 8. Database Models
 
 Important MongoDB models:
 
-- `User`: account, role, KYC, location, preferred language, soft-delete state.
-- `WorkerProfile`: skills, experience, bio, pricing, KYC, availability, approval status, rating stats.
-- `Booking`: customer, worker, service, schedule, status, OTPs, location, payment status.
-- `Chat`: chat participants and chat metadata.
-- `Message`: text/image messages, read/delivery status.
-- `Review`: verified booking reviews.
-- `Notification`: in-app notification records.
-- `PushSubscription`: browser push subscription records.
-- `OTP`: email verification OTPs.
-- `PasswordReset`: password reset code records.
-- `AuditLog`: admin and critical action history.
-- `CommonLocation`: stored common locations and usage count.
-- `WorkerModels`: dynamic worker model helpers.
+- `User`: Account, role (`user`, `worker`, `admin`), KYC, location, preferred language, soft-delete state.
+- `WorkerProfile`: Skills, experience, bio, pricing, KYC, availability, approval status, rating stats.
+- `Booking`: Customer, worker, service, schedule, status, OTPs, location, payment status.
+- `Chat`: Participants array (`[User._id]`), `lastMessage` metadata, timestamps, indexes.
+- `Message`: `chatId`, `sender`, `content`, `messageType` (`text` / `image`), `imageUrl`, `deliveredTo`, `readBy`, timestamps, indexes.
+- `Review`: Verified booking reviews.
+- `Notification`: In-app notification records.
+- `PushSubscription`: Browser push subscription records.
+- `OTP`: Email verification OTPs.
+- `PasswordReset`: Password reset code records.
+- `AuditLog`: Admin and critical action history.
+- `CommonLocation`: Stored common locations and usage count.
+- `WorkerModels`: Dynamic worker model helpers.
 
 ---
 
-## 8. Verification and Trust System
+## 9. Verification and Trust System
 
 InstantSeva uses multiple verification layers:
 
 ### Email Verification
 
 - Registration requires email verification through OTP.
-- OTP attempts are limited.
+- OTP attempts are limited and tracked.
 - Expired or incorrect OTPs are rejected.
 
 ### Profile Completion Gate
 
 - Users and workers cannot access dashboard features until required profile details are complete.
-- Customers must complete profile and submit KYC before dashboard access.
-- Workers must complete profile and submit worker KYC before dashboard access.
+- Customers must complete profile and submit customer KYC before dashboard access.
+- Workers must complete profile, skills, bio, pricing, and submit worker KYC before dashboard access.
 
 ### Admin Approval Gate
 
-- Admin reviews submitted identity documents.
-- Approved accounts gain dashboard access.
-- Rejected accounts can re-upload documents.
+- Admin reviews submitted identity documents in the verification review queue.
+- Approved accounts gain full dashboard access.
+- Rejected accounts receive notice and can re-upload documents.
 
 ### Booking OTP Protection
 
@@ -247,47 +344,37 @@ InstantSeva uses multiple verification layers:
 
 ---
 
-## 9. Search and Location System
+## 10. Search and Location System
 
 The marketplace search supports:
 
-- Service keyword search.
-- Multilingual service keywords.
+- Active service filtering (Home Tutor, Electrician, Plumber).
+- Multilingual service keywords (`shared/serviceKeywords.json`).
 - Nearest-to-farthest worker ordering.
-- Worker availability status.
+- Worker availability status (Available, Busy, Offline).
 - Online/offline presence indicators.
 - Worker approval filtering.
 - Soft-deleted worker filtering.
 - Location-based coordinates and address fallback.
-- Shared keyword mapping from `shared/serviceKeywords.json`.
-
-If a searched service is not listed, the UI can show a fallback state and guide users to request or search similar services.
+- Differentiated empty states (unavailable service with active suggestions vs unknown query).
 
 ---
 
-## 10. Chat and Presence
+## 11. Chat, Presence & Real-Time Messaging
 
-The chat system includes:
+The messaging architecture includes:
 
-- Real-time messaging through Socket.IO.
-- Text messages.
-- Image messages using Cloudinary.
-- Chat history persistence in MongoDB.
-- Message delivery state.
-- Read receipts.
-- Online/offline presence.
-- Restricted chat rules to prevent unrelated spam.
-- Push notification dispatch for important message events.
-
-Message tick behavior:
-
-- Single tick: sent but receiver is offline or not delivered.
-- Double tick: delivered to receiver.
-- Colored double tick: receiver viewed/read the message.
+- **Socket.IO Real-Time Engine**: Connected with JWT token authentication and user-specific rooms.
+- **Supported Conversations**: User ↔ User, User ↔ Worker, Worker ↔ User, Worker ↔ Worker, Admin support.
+- **History & Retention**: Complete chat history is permanently stored in MongoDB and loaded on demand.
+- **Receipts**: Live update of `sent` (single tick), `delivered` (double grey tick), and `read` (double green/emerald tick).
+- **Presence**: Real-time broadcast of online/offline status and `lastSeenAt`.
+- **Search Contacts**: Instant discovery of registered users and workers via `+ New Chat` modal with full profession, rating, review count, and availability details for workers.
+- **Unread Tracking**: Aggregate unread badge counters per conversation.
 
 ---
 
-## 11. Notifications
+## 12. Notifications
 
 InstantSeva supports multiple notification layers:
 
@@ -295,7 +382,7 @@ InstantSeva supports multiple notification layers:
 - Browser push notifications through Web Push and VAPID.
 - Notification language selection based on user preferred language.
 - Booking notifications.
-- Chat notifications.
+- Chat message notifications.
 - Review notifications.
 - Payment/status notifications.
 - Verification result notifications.
@@ -308,7 +395,7 @@ Required push environment values:
 
 ---
 
-## 12. Multilingual System
+## 13. Multilingual System
 
 InstantSeva includes multilingual support for all 22 scheduled Indian languages:
 
@@ -318,7 +405,7 @@ InstantSeva includes multilingual support for all 22 scheduled Indian languages:
 4. Telugu
 5. Marathi
 6. Tamil
-7. Urdu
+7. Urdu (with RTL direction support)
 8. Gujarati
 9. Kannada
 10. Odia
@@ -335,88 +422,47 @@ InstantSeva includes multilingual support for all 22 scheduled Indian languages:
 21. Manipuri
 22. Bodo
 
-Implementation details:
-
-- Uses `i18next` and `react-i18next`.
-- English is the fallback language.
-- Locale JSON files are lazy-loaded to reduce initial bundle size.
-- Selected language is saved in localStorage.
-- Logged-in users can sync preferred language to their profile.
-- Browser language detection chooses the closest supported language.
-- Urdu supports RTL direction.
-- API requests include `Accept-Language` and `X-Language`.
-- Backend messages can use server-side translation keys.
-- Notifications can be created in the receiver's preferred language.
-- Runtime translator acts as a safety layer for leftover visible strings.
-
 ---
 
-## 13. Voice and Accessibility Features
+## 14. Voice and Accessibility Features
 
-The project includes browser-based voice support where available:
-
-- Voice input for search or user queries.
-- Text-to-speech support in selected language when the browser supports it.
+- Voice input for search and voice service discovery.
+- Text-to-speech support in selected language.
 - Graceful fallback when speech APIs are unavailable.
-- Responsive layouts for mobile and desktop.
-- Language direction handling for RTL.
+- Responsive layouts for mobile, tablet, and desktop.
+- Language direction handling for RTL (Urdu).
 
 ---
 
-## 14. Admin Dashboard Details
+## 15. Admin Dashboard Details
 
 Admin capabilities:
 
-- View total users.
-- View total workers.
-- View pending KYC count.
-- View paid and total bookings.
-- Click count cards to inspect matching records.
+- View total users, workers, pending KYC count, paid bookings, and total bookings.
+- Inspect matching records via clickable count cards.
 - Search users, workers, and bookings.
-- Add user accounts.
-- Add worker accounts.
-- Soft-delete user/worker accounts.
-- Review pending user and worker KYC.
-- Preview uploaded ID documents inside the review modal.
+- Add and soft-delete user/worker accounts.
+- Review pending user and worker KYC with document preview modal.
 - Approve or reject verification.
-- View audit logs.
-
-Document preview behavior:
-
-- Images render directly inside the modal.
-- Cloudinary PDFs are converted to an inline first-page image preview.
-- Unsupported/corrupt files show an inline fallback message.
+- View audit logs for security tracking.
 
 ---
 
-## 15. Deployment Architecture
+## 16. Deployment Architecture
 
-The app is designed for single-service deployment on Render:
+Designed for single-service deployment on Render:
 
-1. Render runs root build command.
+1. Render runs root build command (`npm ci && npm run ci`).
 2. Root build installs dependencies and builds frontend.
 3. Backend starts with `npm start`.
 4. Express serves API routes under `/api`.
 5. Express serves `frontend/dist` for the React app.
 6. SPA fallback serves `index.html` for frontend routes.
-7. SEO files such as `sitemap.xml`, `robots.txt`, and `site.webmanifest` are served directly.
-
-Render configuration:
-
-```yaml
-services:
-  - type: web
-    name: instantseva
-    env: node
-    plan: free
-    buildCommand: npm ci && npm run ci
-    startCommand: npm start
-    healthCheckPath: /api/health
-```
+7. SEO files (`sitemap.xml`, `robots.txt`, `site.webmanifest`) are served directly.
 
 ---
 
-## 16. Environment Variables
+## 17. Environment Variables
 
 Important backend environment variables:
 
@@ -441,64 +487,22 @@ Important backend environment variables:
 - `VAPID_PRIVATE_KEY`
 - `VAPID_CONTACT_EMAIL`
 
-Production validation:
-
-- `MONGO_URI` is required.
-- `JWT_SECRET` is required.
-- Production `JWT_SECRET` must be at least 32 characters.
-- Production must define a client origin through `CLIENT_ORIGIN` or `RENDER_EXTERNAL_URL`.
-
-Frontend environment variables:
-
-- `VITE_API_URL` can be used when frontend and backend are hosted separately.
-- If frontend is served by the backend, `/api` is used by default.
-
 ---
 
-## 17. Security Measures
-
-Implemented security features:
+## 18. Security Measures
 
 - Password hashing with bcrypt.
 - JWT authentication.
-- Role-based route protection.
-- Dashboard access gating.
-- Email verification.
-- Admin verification gate.
+- Strict role-based route protection (`user`, `worker`, `admin`).
+- Customer/Guest route wrappers preventing workers from accessing customer discovery.
+- Backend API authorization on bookings, KYC, worker, and admin routes.
+- Dashboard access gating based on KYC approval.
+- Email verification OTPs with attempt limiting and expiry.
 - Rate limiters for auth, signup, login, OTP, chat, password reset, and location search.
-- Helmet security headers.
-- CORS origin allowlist.
+- Helmet security headers and CORS allowlist.
 - Soft-delete/suspend instead of immediate account data removal.
-- API error handling.
-- Structured backend logging.
-- Audit log persistence for critical platform events.
-- Upload normalization for Cloudinary/local storage file formats.
-
-Important production note:
-
-- JWTs are currently stored client-side for development speed. For stronger production security, HTTP-only cookies, refresh token rotation, and token invalidation should be added later.
-
----
-
-## 18. SEO System
-
-SEO-related features:
-
-- Sitemap support.
-- Robots file support.
-- Web manifest support.
-- Open Graph metadata.
-- Twitter card metadata.
-- Structured data for better search engine understanding.
-- Public service and worker discovery paths.
-- SPA fallback that still serves public routes correctly.
-
-For Google Search Console:
-
-- Submit `/sitemap.xml`.
-- Make sure `robots.txt` does not block the home page or sitemap.
-- Use URL inspection after deployment.
-- Google may take time to update title and favicon after deployment.
+- Structured backend logging and audit log persistence.
+- Message validation (content sanitization, length limit, authenticated sender binding).
 
 ---
 
@@ -517,31 +521,19 @@ This command runs:
 - UI i18n/static smoke check.
 - E2E-style route/API smoke check.
 - Frontend production build.
-- Backend syntax checks.
-- Backend unit tests.
-
-Useful scripts:
-
-```bash
-npm run dev
-npm run build
-npm run lint
-npm run check:backend
-npm test
-npm run seed --prefix backend
-```
-
-Backend tests cover:
-
-- Booking lifecycle rules.
-- Pricing calculation.
-- Pagination safety.
-- Payment status transition rules.
-- Regex escaping for search.
-- Chat access rules.
-- Booking OTP fields.
-- Upload payload normalization.
-- Production env validation.
+- Backend syntax checks across all models, controllers, and middleware.
+- Backend unit and integration tests:
+  - Booking lifecycle rules.
+  - Pricing calculation.
+  - Pagination safety.
+  - Payment status transition rules.
+  - Regex escaping for search.
+  - Chat access & role combination tests (`User ↔ User`, `User ↔ Worker`, `Worker ↔ User`, `Worker ↔ Worker`, self-chat rejection).
+  - Role-based authorization middleware tests.
+  - Booking OTP expiry and attempts.
+  - Upload payload normalization.
+  - Production env validation.
+  - Server translations and presence helpers.
 
 ---
 
@@ -565,69 +557,8 @@ Default local URLs:
 - Backend: `http://localhost:5000`
 - Health check: `http://localhost:5000/api/health`
 
-When running locally, CORS allows localhost frontend origins.
-
 ---
 
-## 21. Seed Data
+## 21. One-Line Summary
 
-The backend seed script creates or updates sample users and marketplace data.
-
-Run:
-
-```bash
-npm run seed --prefix backend
-```
-
-Seed examples include:
-
-- Admin account.
-- Customer account.
-- Multiple worker examples such as plumber, electrician, carpenter, tutor, AC repair, and multi-skill worker.
-
-Check `backend/scripts/seed.js` for the latest exact credentials and sample data.
-
----
-
-## 22. Current Limitations
-
-Known limitations:
-
-- Real payment gateway is not integrated yet.
-- Payments are currently prototype/manual status updates.
-- JWT storage can be hardened for production.
-- Push notification delivery depends on browser support and user permission.
-- Browser PDF preview support varies, so Cloudinary PDF previews are converted to image where possible.
-- Full production monitoring and analytics are not included yet.
-
----
-
-## 23. Recommended Roadmap
-
-High-priority improvements:
-
-- Add Razorpay or Stripe payment integration.
-- Add HTTP-only cookie authentication and refresh token rotation.
-- Add production analytics and error monitoring.
-- Add automated browser E2E tests with Playwright or Cypress.
-- Add admin export tools for users, workers, bookings, and audit logs.
-- Add worker payout management.
-- Add service request flow for unlisted services.
-- Add stronger moderation tools for chat images and documents.
-- Add mobile app or PWA install flow.
-
-Future growth features:
-
-- Worker subscription plans.
-- AI-based worker recommendation.
-- Service package pricing.
-- Scheduled recurring bookings.
-- WhatsApp/SMS notification integrations.
-- Advanced fraud detection.
-- Multi-city marketplace management.
-
----
-
-## 24. One-Line Summary
-
-InstantSeva is a verified, multilingual, location-aware hyperlocal service marketplace with customer booking, worker onboarding, admin approval, chat, push notifications, OTP-secured job completion, and production-ready deployment support.
+InstantSeva is a verified, multilingual, location-aware hyperlocal service marketplace with customer booking, worker onboarding, admin approval, persistent role-based real-time chat with rich worker cards, push notifications, OTP-secured job completion, and production-ready deployment support.

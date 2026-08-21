@@ -51,3 +51,29 @@ test('production env validation rejects weak secrets and missing origins', () =>
     }
   });
 });
+
+test('authorize middleware restricts unauthorized roles', () => {
+  const { authorize } = require('../middleware/authMiddleware');
+  const userMiddleware = authorize('user');
+  let allowed = false;
+  let errorStatus = null;
+
+  // Test authorized user
+  userMiddleware(
+    { user: { role: 'user' }, t: (k) => k },
+    { status: (s) => ({ json: () => { errorStatus = s; } }) },
+    () => { allowed = true; }
+  );
+  assert.equal(allowed, true);
+
+  // Test unauthorized worker
+  allowed = false;
+  userMiddleware(
+    { user: { role: 'worker' }, t: (k) => k },
+    { status: (s) => ({ json: (d) => { errorStatus = s; } }) },
+    () => { allowed = true; }
+  );
+  assert.equal(allowed, false);
+  assert.equal(errorStatus, 403);
+});
+

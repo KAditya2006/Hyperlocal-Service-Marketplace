@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Bell, Menu, Search, LogOut, X } from 'lucide-react';
+import { Bell, Menu, Search, LogOut, X, MessageSquare } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { useTranslation } from 'react-i18next';
 import { getNotifications, markNotificationsRead } from '../services/api';
@@ -89,17 +89,29 @@ const Navbar = () => {
     }
   };
 
+  const homePath = user
+    ? user.role === 'admin'
+      ? '/admin/dashboard'
+      : user.role === 'worker'
+        ? user.canAccessDashboard
+          ? '/worker/dashboard'
+          : '/profile'
+        : '/'
+    : '/';
+
   return (
     <nav className="glass sticky top-0 z-50 w-full border-b border-gray-100">
       <div className="w-full px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2 sm:gap-3 min-w-0">
-        <Link to="/" className="shrink-0" aria-label={t('navbar.instantHome')}>
+        <Link to={homePath} className="shrink-0" aria-label={t('navbar.instantHome')}>
           <BrandLogo />
         </Link>
 
         <div className="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-600">
-          <Link to="/search" className="hover:text-primary-600 flex items-center gap-2">
-            <Search size={18} /> {t('navbar.searchServices')}
-          </Link>
+          {(!user || user.role === 'user') && (
+            <Link to="/search" className="hover:text-primary-600 flex items-center gap-2">
+              <Search size={18} /> {t('navbar.searchServices')}
+            </Link>
+          )}
           {!token && (
             <Link to="/signup" className="hover:text-primary-600">
               {t('navbar.becomeWorker')}
@@ -111,6 +123,13 @@ const Navbar = () => {
           <LanguageSwitcher compact className="hidden md:inline-flex" />
           {token ? (
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-4">
+              <Link
+                to="/messages"
+                className="p-2 text-slate-400 hover:text-primary-600 transition-colors relative"
+                title={t('chat.messages')}
+              >
+                <MessageSquare size={20} />
+              </Link>
             <div className="relative">
               <button onClick={handleNotificationOpen} className="p-2 text-slate-400 hover:text-primary-600 transition-colors relative" title={t('common.notifications')}>
                 <Bell size={20} />
@@ -200,12 +219,15 @@ const Navbar = () => {
       {mobileOpen && (
         <div className="lg:hidden px-4 pb-4 grid gap-2 text-sm font-bold text-slate-600">
           <LanguageSwitcher className="justify-between" />
-          <Link onClick={() => setMobileOpen(false)} to="/search" className="flex items-center gap-2 rounded-xl bg-white/70 px-4 py-3">
-            <Search size={18} /> {t('navbar.searchServices')}
-          </Link>
+          {(!user || user.role === 'user') && (
+            <Link onClick={() => setMobileOpen(false)} to="/search" className="flex items-center gap-2 rounded-xl bg-white/70 px-4 py-3">
+              <Search size={18} /> {t('navbar.searchServices')}
+            </Link>
+          )}
           {!token && <Link onClick={() => setMobileOpen(false)} to="/signup" className="rounded-xl bg-white/70 px-4 py-3">{t('navbar.becomeWorker')}</Link>}
           {!token && <Link onClick={() => setMobileOpen(false)} to="/login" className="rounded-xl bg-white/70 px-4 py-3">{t('common.login')}</Link>}
           {!token && <Link onClick={() => setMobileOpen(false)} to="/signup" className="rounded-xl bg-primary-600 text-white px-4 py-3">{t('common.getStarted')}</Link>}
+          {token && <Link onClick={() => setMobileOpen(false)} to="/messages" className="flex items-center gap-2 rounded-xl bg-white/70 px-4 py-3"><MessageSquare size={18} /> {t('chat.messages')}</Link>}
           {user?.role === 'worker' && <Link onClick={() => setMobileOpen(false)} to={user?.canAccessDashboard ? getDashboardPath(user) : '/profile'} className="rounded-xl bg-white/70 px-4 py-3">{user?.canAccessDashboard ? t('common.workerPanel') : t('common.completeProfile')}</Link>}
           {user?.role === 'user' && <Link onClick={() => setMobileOpen(false)} to={user?.canAccessDashboard ? '/dashboard' : '/profile'} className="rounded-xl bg-white/70 px-4 py-3">{user?.canAccessDashboard ? t('common.dashboard') : t('common.completeProfile')}</Link>}
           {user?.role === 'admin' && <Link onClick={() => setMobileOpen(false)} to="/admin/dashboard" className="rounded-xl bg-white/70 px-4 py-3">{t('common.adminPanel')}</Link>}

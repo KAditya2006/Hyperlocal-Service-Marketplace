@@ -13,8 +13,14 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, user, token } = useAuth();
   const { t } = useTranslation();
+
+  React.useEffect(() => {
+    if (token && user) {
+      navigate(getPostAuthRedirect(user), { replace: true });
+    }
+  }, [token, user, navigate]);
 
   React.useEffect(() => {
     if (location.state?.message) {

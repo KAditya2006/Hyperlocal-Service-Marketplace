@@ -1,7 +1,7 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { createReview, getBookings, updateBookingPayment, updateBookingStatus, verifyStartOTP } from '../services/api';
+import { createReview, getBookings, initiateChat, updateBookingPayment, updateBookingStatus, verifyStartOTP } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import {
   ArrowRight,
@@ -14,12 +14,15 @@ import {
   Hammer,
   Key,
   Laptop,
+  LayoutDashboard,
   MapPin,
+  MessageSquare,
   Palette,
   Phone,
   Search as SearchIcon,
   Settings,
   Sparkles,
+  User as UserIcon,
   Utensils,
   Wifi,
   Wind,
@@ -182,15 +185,90 @@ const Dashboard = () => {
     }
   };
 
+  const handleChatWithPerson = async (personId) => {
+    if (!personId) return;
+    try {
+      const { data } = await initiateChat({ recipientId: personId });
+      navigate('/messages', { state: { chatId: data.data._id } });
+    } catch (error) {
+      toast.error(error.response?.data?.message || t('search.couldNotStartChat'));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Navbar />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10 space-y-6 sm:space-y-8">
-        <header className="bg-white rounded-3xl border border-slate-100 premium-shadow p-5 sm:p-8">
-          <p className="text-sm font-bold uppercase tracking-widest text-primary-600">{t('dashboard.customerDashboard')}</p>
-          <h1 className="text-3xl sm:text-4xl font-bold font-heading text-slate-900 mt-2">{t('dashboard.serviceActivity')}</h1>
-          <p className="text-slate-500 font-medium mt-2">{t('dashboard.activitySubtitle')}</p>
+        {/* User Dashboard Navigation Bar */}
+        <nav aria-label={t('common.dashboard')} className="bg-white rounded-3xl border border-slate-100 premium-shadow p-2.5 sm:p-3 flex items-center justify-between gap-2 overflow-x-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-max">
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-primary-50 text-primary-700 font-bold text-sm whitespace-nowrap border border-primary-100"
+            >
+              <LayoutDashboard size={18} />
+              <span>{t('common.dashboard')}</span>
+            </Link>
+            <Link
+              to="/search"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-bold text-sm transition-all whitespace-nowrap"
+            >
+              <SearchIcon size={18} />
+              <span>{t('navbar.searchServices')}</span>
+            </Link>
+            <Link
+              to="/messages"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-slate-700 hover:bg-primary-50 hover:text-primary-700 font-bold text-sm transition-all whitespace-nowrap group"
+            >
+              <MessageSquare size={18} className="text-primary-600 group-hover:scale-110 transition-transform" />
+              <span>{t('common.chat')}</span>
+            </Link>
+            <Link
+              to="/profile"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-bold text-sm transition-all whitespace-nowrap"
+            >
+              <UserIcon size={18} />
+              <span>{t('common.profile')}</span>
+            </Link>
+          </div>
+        </nav>
+
+        <header className="bg-white rounded-3xl border border-slate-100 premium-shadow p-5 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold uppercase tracking-widest text-primary-600">{t('dashboard.customerDashboard')}</p>
+            <h1 className="text-3xl sm:text-4xl font-bold font-heading text-slate-900 mt-2">{t('dashboard.serviceActivity')}</h1>
+            <p className="text-slate-500 font-medium mt-2">{t('dashboard.activitySubtitle')}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to="/messages"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-primary-600 text-white font-bold hover:bg-primary-700 transition-all shadow-md hover:shadow-lg active:scale-95"
+            >
+              <MessageSquare size={18} />
+              <span>{t('common.chat')}</span>
+            </Link>
+          </div>
         </header>
+
+        {/* Quick Chat Section */}
+        <section className="bg-gradient-to-r from-primary-600 via-primary-700 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+              <Sparkles size={14} /> {t('chat.startConversation')}
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold font-heading">{t('chat.messages')} & Live Chat</h2>
+            <p className="text-primary-100 text-sm max-w-xl">
+              {t('chat.selectConversationHint')}
+            </p>
+          </div>
+          <Link
+            to="/messages"
+            className="shrink-0 inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-white text-primary-700 font-bold hover:bg-primary-50 transition-all shadow-md active:scale-95 text-base"
+          >
+            <MessageSquare size={20} className="text-primary-600" />
+            <span>{t('chat.startNewChat')}</span>
+          </Link>
+        </section>
 
         <section className="bg-white rounded-3xl border border-slate-100 premium-shadow p-5 sm:p-8 space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 min-w-0">
@@ -324,6 +402,16 @@ const Dashboard = () => {
                     </div>
                   )}
 
+                  {otherPerson?._id && (
+                    <button
+                      type="button"
+                      onClick={() => handleChatWithPerson(otherPerson._id)}
+                      className="px-4 py-2 rounded-xl bg-primary-50 text-primary-700 font-bold hover:bg-primary-100 transition-all flex items-center gap-1.5 text-sm"
+                    >
+                      <MessageSquare size={16} />
+                      <span>{t('common.chat')}</span>
+                    </button>
+                  )}
                   {['pending', 'accepted'].includes(booking.status) && (
                     <button onClick={() => changeStatus(booking._id, 'cancelled')} className="px-4 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold">{t('common.cancel')}</button>
                   )}

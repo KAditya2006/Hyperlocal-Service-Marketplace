@@ -1,6 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getChats, getMessages, initiateChat, markChatRead, sendTextMessage, uploadImageMessage } = require('../controllers/chatController');
+const {
+  getChats,
+  getMessages,
+  initiateChat,
+  markChatRead,
+  searchContacts,
+  sendTextMessage,
+  uploadImageMessage
+} = require('../controllers/chatController');
 const { dashboardApprovedOnly, protect, verifiedOnly } = require('../middleware/authMiddleware');
 const { chatMessageLimiter } = require('../middleware/rateLimiters');
 const { uploadImage } = require('../config/cloudinary');
@@ -10,6 +18,7 @@ router.use(verifiedOnly);
 router.use(dashboardApprovedOnly);
 
 router.get('/', getChats);
+router.get('/contacts', searchContacts);
 router.get('/:chatId', getMessages);
 router.post('/initiate', initiateChat);
 router.post('/:chatId/messages', chatMessageLimiter, sendTextMessage);

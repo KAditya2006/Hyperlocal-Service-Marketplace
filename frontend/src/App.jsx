@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { getOnboardingMessage } from './utils/onboarding';
+import { getDashboardPath, getOnboardingMessage } from './utils/onboarding';
 
 // Pages
 const Home = lazy(() => import('./pages/Home'));
@@ -31,13 +31,38 @@ const PageLoader = () => {
   );
 };
 
+const CustomerOrGuestRoute = ({ children }) => {
+  const { t } = useTranslation();
+  const { token, user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center font-heading font-medium text-slate-500">
+        {t('common.loadingMarketplace')}
+      </div>
+    );
+  }
+
+  if (token && user?.role === 'worker') {
+    return <Navigate to={user?.canAccessDashboard ? '/worker/dashboard' : '/profile'} replace />;
+  }
+
+  if (token && user?.role === 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
+  return children;
+};
+
 const ProtectedRoute = ({ children, role, requireDashboardAccess = false }) => {
   const { t } = useTranslation();
   const { token, user, loading } = useAuth();
 
   if (loading) return <div className="min-h-screen flex items-center justify-center font-heading font-medium text-slate-500">{t('common.loadingMarketplace')}</div>;
   if (!token) return <Navigate to="/login" state={{ message: t('auth.notLoggedIn') }} />;
-  if (role && user?.role !== role) return <Navigate to="/" />;
+  if (role && user?.role !== role) {
+    return <Navigate to={getDashboardPath(user)} replace />;
+  }
   if (requireDashboardAccess && !user?.canAccessDashboard) {
     return <Navigate to="/profile" replace state={{ notice: getOnboardingMessage(user) }} />;
   }
@@ -48,18 +73,33 @@ const ProtectedRoute = ({ children, role, requireDashboardAccess = false }) => {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route 
+        path="/" 
+        element={
+          <CustomerOrGuestRoute>
+            <Home />
+          </CustomerOrGuestRoute>
+        } 
+      />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/verify-otp" element={<VerifyOTP />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route 
         path="/search" 
-        element={<SearchPage />} 
+        element={
+          <CustomerOrGuestRoute>
+            <SearchPage />
+          </CustomerOrGuestRoute>
+        } 
       />
       <Route 
         path="/workers/:workerId" 
-        element={<WorkerProfile />} 
+        element={
+          <CustomerOrGuestRoute>
+            <WorkerProfile />
+          </CustomerOrGuestRoute>
+        } 
       />
       
       {/* Protected Routes */}
@@ -92,6 +132,22 @@ function AppRoutes() {
 
       <Route 
         path="/messages" 
+        element={
+          <ProtectedRoute requireDashboardAccess>
+            <ChatPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/chat" 
+        element={
+          <ProtectedRoute requireDashboardAccess>
+            <ChatPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/chat/:chatId" 
         element={
           <ProtectedRoute requireDashboardAccess>
             <ChatPage />

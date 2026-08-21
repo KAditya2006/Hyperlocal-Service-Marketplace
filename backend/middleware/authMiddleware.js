@@ -73,3 +73,28 @@ exports.dashboardApprovedOnly = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.customerOrGuestOnly = async (req, res, next) => {
+  try {
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const user = await User.findById(decoded.id);
+
+      if (user && user.role === 'worker') {
+        return res.status(403).json({
+          success: false,
+          message: req.t ? req.t('roleNotAuthorized', { role: user.role }) : 'Workers cannot access customer service discovery.'
+        });
+      }
+    }
+
+    next();
+  } catch {
+    next();
+  }
+};

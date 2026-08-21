@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { createBooking, createReview, getBookings, updateBookingStatus, updatePaymentStatus } = require('../controllers/bookingController');
-const { dashboardApprovedOnly, protect, verifiedOnly } = require('../middleware/authMiddleware');
+const { authorize, dashboardApprovedOnly, protect, verifiedOnly } = require('../middleware/authMiddleware');
 
 router.use(protect);
 router.use(verifiedOnly);
@@ -9,7 +9,7 @@ router.use(dashboardApprovedOnly);
 
 router.route('/')
   .get(getBookings)
-  .post(createBooking);
+  .post(authorize('user'), createBooking);
 
 router.patch('/:id/status', updateBookingStatus);
 router.patch('/:id/payment', updatePaymentStatus);

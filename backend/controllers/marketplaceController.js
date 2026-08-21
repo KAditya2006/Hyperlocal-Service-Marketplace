@@ -5,6 +5,7 @@ const { getPagination } = require('../utils/bookingRules');
 const escapeRegex = require('../utils/escapeRegex');
 const { normalizeServiceSearch } = require('../utils/serviceKeywords');
 const { attachPresence, getId } = require('../utils/presence');
+const { SUPPORTED_SERVICES, isSupportedService, isKnownService } = require('../utils/supportedServices');
 
 const SERVICE_ALIASES = {
   pharmacist: ['pharmacist', 'pharamascist'],
@@ -92,12 +93,23 @@ exports.searchWorkers = async (req, res, next) => {
     const filter = {
       user: { $in: activeWorkers.map((worker) => worker._id) },
       approvalStatus: 'approved',
-      availabilityStatus: { $ne: 'Offline' }
+      availabilityStatus: { $ne: 'Offline' },
+      skills: { $in: SUPPORTED_SERVICES.map((supportedService) => new RegExp(`^${escapeRegex(supportedService)}$`, 'i')) }
     };
 
     const searchTerm = service || q;
 
     if (searchTerm) {
+      if (!isSupportedService(searchTerm)) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          pagination: { page, limit, total: 0, pages: 1 },
+          serviceUnavailable: isKnownService(searchTerm),
+          availableServices: SUPPORTED_SERVICES
+        });
+      }
+
       const searchTerms = getSearchTerms(searchTerm);
       filter.$or = searchTerms.flatMap((term) => {
         const safeTerm = escapeRegex(term);

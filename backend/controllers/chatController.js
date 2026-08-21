@@ -1,12 +1,13 @@
 const Chat = require('../models/Chat');
 const Message = require('../models/Message');
 const User = require('../models/User');
-const Booking = require('../models/Booking');
 const WorkerProfile = require('../models/WorkerProfile');
 const { getPagination } = require('../utils/bookingRules');
 const { canInitiateChat } = require('../utils/chatAccess');
 const createNotification = require('../utils/createNotification');
 const { attachPresence, getId } = require('../utils/presence');
+const escapeRegex = require('../utils/escapeRegex');
+const { normalizeServiceSearch } = require('../utils/serviceKeywords');
 
 const findUserChat = (chatId, userId) => {
   return Chat.findOne({ _id: chatId, participants: userId });
@@ -140,11 +141,132 @@ exports.getChats = async (req, res, next) => {
       .populate('participants', 'name email avatar role isOnline lastSeenAt presenceUpdatedAt')
       .sort({ updatedAt: -1 });
 
+    const chatIds = chats.map((chat) => chat._id);
+
+    // Calculate unread count for each chat for the current user
+    let unreadMap = new Map();
+    if (chatIds.length > 0) {
+      const unreadCounts = await Message.aggregate([
+        {
+          $match: {
+            chatId: { $in: chatIds },
+            sender: { $ne: req.user._id },
+            readBy: { $ne: req.user._id }
+          }
+        },
+        {
+          $group: {
+            _id: '$chatId',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      unreadCounts.forEach((item) => {
+        unreadMap.set(item._id.toString(), item.count);
+      });
+    }
+
     const onlineUserIds = req.app.get('onlineUserIds') || new Set();
     
+    const data = chats.map((chat) => {
+      const plainChat = attachParticipantPresence(chat, onlineUserIds);
+      plainChat.unreadCount = unreadMap.get(chat._id.toString()) || 0;
+      return plainChat;
+    });
+
     res.status(200).json({
       success: true,
-      data: chats.map((chat) => attachParticipantPresence(chat, onlineUserIds))
+      data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.searchContacts = async (req, res, next) => {
+  try {
+    const { q, role } = req.query;
+    const currentUserId = req.user.id;
+
+    const filter = {
+      _id: { $ne: currentUserId },
+      isDeleted: { $ne: true },
+      isVerified: true
+    };
+
+    if (role && ['user', 'worker'].includes(role)) {
+      filter.role = role;
+    } else {
+      filter.role = { $in: ['user', 'worker'] };
+    }
+
+    if (q && q.trim()) {
+      const rawQuery = q.trim();
+      const searchRegex = new RegExp(escapeRegex(rawQuery), 'i');
+      const normalizedSkill = normalizeServiceSearch(rawQuery);
+      const skillRegex = normalizedSkill ? new RegExp(escapeRegex(normalizedSkill), 'i') : searchRegex;
+
+      const matchingWorkerProfiles = await WorkerProfile.find({
+        $or: [
+          { skills: searchRegex },
+          { skills: skillRegex },
+          { bio: searchRegex }
+        ]
+      }).select('user').lean();
+
+      const matchingWorkerUserIds = matchingWorkerProfiles.map((wp) => wp.user);
+
+      filter.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { phone: searchRegex },
+        ...(matchingWorkerUserIds.length ? [{ _id: { $in: matchingWorkerUserIds } }] : [])
+      ];
+    }
+
+    const users = await User.find(filter)
+      .select('name email avatar phone role location isOnline lastSeenAt presenceUpdatedAt')
+      .limit(30)
+      .lean();
+
+    const workerUserIds = users.filter((u) => u.role === 'worker').map((u) => u._id);
+    const workerProfileMap = new Map();
+
+    if (workerUserIds.length > 0) {
+      const workerProfiles = await WorkerProfile.find({
+        user: { $in: workerUserIds }
+      }).select('user skills experience bio pricing availabilityStatus averageRating totalReviews approvalStatus').lean();
+
+      workerProfiles.forEach((wp) => {
+        workerProfileMap.set(wp.user.toString(), wp);
+      });
+    }
+
+    const onlineUserIds = req.app.get('onlineUserIds') || new Set();
+    const withPresence = users.map((u) => {
+      const userWithPresence = attachPresence(u, onlineUserIds);
+      if (u.role === 'worker') {
+        const profile = workerProfileMap.get(u._id.toString());
+        if (profile) {
+          userWithPresence.workerProfile = {
+            skills: profile.skills || [],
+            primaryProfession: profile.skills?.[0] || null,
+            experience: typeof profile.experience === 'number' ? profile.experience : 0,
+            pricing: profile.pricing || null,
+            availabilityStatus: profile.availabilityStatus || 'Available',
+            averageRating: typeof profile.averageRating === 'number' ? profile.averageRating : 0,
+            totalReviews: typeof profile.totalReviews === 'number' ? profile.totalReviews : 0,
+            approvalStatus: profile.approvalStatus || 'pending'
+          };
+        }
+      }
+      return userWithPresence;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: withPresence
     });
   } catch (error) {
     next(error);
@@ -164,7 +286,7 @@ exports.getMessages = async (req, res, next) => {
 
     const total = await Message.countDocuments({ chatId });
     const messages = await Message.find({ chatId })
-      .populate('sender', 'name avatar')
+      .populate('sender', 'name avatar role')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -187,16 +309,14 @@ exports.initiateChat = async (req, res, next) => {
       return res.status(400).json({ success: false, message: req.t('chatValidRecipientRequired') });
     }
 
-    const recipient = await User.findById(recipientId);
+    const recipient = await User.findOne({ _id: recipientId, isDeleted: { $ne: true } });
     if (!recipient) {
       return res.status(404).json({ success: false, message: req.t('recipientNotFound') });
     }
 
     const allowed = await canInitiateChat({
       requester: req.user,
-      recipientId,
-      workerProfileExists: (filter) => WorkerProfile.exists(filter),
-      bookingExists: (filter) => Booking.exists(filter)
+      recipientId
     });
     if (!allowed) {
       return res.status(403).json({
@@ -205,18 +325,20 @@ exports.initiateChat = async (req, res, next) => {
       });
     }
     
-    // Check if chat already exists
+    // Check if chat already exists between these two participants (Deduplication)
     let chat = await Chat.findOne({
-      participants: { $all: [req.user.id, recipientId] }
-    });
+      participants: { $all: [req.user.id, recipientId], $size: 2 }
+    }).populate('participants', 'name email avatar role isOnline lastSeenAt presenceUpdatedAt');
 
     if (!chat) {
-      chat = await Chat.create({
+      const newChat = await Chat.create({
         participants: [req.user.id, recipientId]
       });
+      chat = await Chat.findById(newChat._id).populate('participants', 'name email avatar role isOnline lastSeenAt presenceUpdatedAt');
     }
 
-    res.status(200).json({ success: true, data: chat });
+    const onlineUserIds = req.app.get('onlineUserIds') || new Set();
+    res.status(200).json({ success: true, data: attachParticipantPresence(chat, onlineUserIds) });
   } catch (error) {
     next(error);
   }
@@ -229,6 +351,10 @@ exports.sendTextMessage = async (req, res, next) => {
 
     if (!content) {
       return res.status(400).json({ success: false, message: req.t('messageEmpty') });
+    }
+
+    if (content.length > 5000) {
+      return res.status(400).json({ success: false, message: 'Message exceeds maximum length of 5000 characters.' });
     }
 
     const chat = await findUserChat(chatId, req.user.id);
@@ -257,7 +383,7 @@ exports.sendTextMessage = async (req, res, next) => {
       }
     });
 
-    const populatedMessage = await Message.findById(message._id).populate('sender', 'name avatar');
+    const populatedMessage = await Message.findById(message._id).populate('sender', 'name avatar role');
 
     await emitMessageAndNotifyRecipients({
       req,
@@ -272,7 +398,6 @@ exports.sendTextMessage = async (req, res, next) => {
   }
 };
 
-// Handle image messages through the same REST-backed chat flow as text messages.
 exports.uploadImageMessage = async (req, res, next) => {
   try {
     const { chatId } = req.body;
@@ -299,7 +424,6 @@ exports.uploadImageMessage = async (req, res, next) => {
       readBy: [req.user.id]
     });
 
-    // Update last message in chat
     await Chat.findByIdAndUpdate(chatId, {
       lastMessage: {
         text: req.t('sentImage'),
@@ -308,7 +432,7 @@ exports.uploadImageMessage = async (req, res, next) => {
       }
     });
 
-    const populatedMessage = await Message.findById(message._id).populate('sender', 'name avatar');
+    const populatedMessage = await Message.findById(message._id).populate('sender', 'name avatar role');
     await emitMessageAndNotifyRecipients({
       req,
       chat,

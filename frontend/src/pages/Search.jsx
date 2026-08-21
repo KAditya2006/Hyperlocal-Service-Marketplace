@@ -13,7 +13,7 @@ import VoiceSearchButton from '../components/VoiceSearchButton';
 import { normalizeServiceSearch } from '../utils/multilingualSearch';
 import SearchEmptyState from '../components/search/SearchEmptyState';
 import WorkerSearchCard from '../components/search/WorkerSearchCard';
-import { getSearchOrigin, getSuggestedServices, getWorkerSkills, isListedService } from '../utils/serviceSearch';
+import { getSearchOrigin, getSuggestedServices, getWorkerSkills, isKnownButInactiveService, isListedService } from '../utils/serviceSearch';
 import { getWorkerAvailabilityStatus } from '../utils/workerAvailability';
 
 const SearchPage = () => {
@@ -26,6 +26,7 @@ const SearchPage = () => {
   const [workers, setWorkers] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pages: 1 });
   const [loading, setLoading] = useState(true);
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState(null);
   const [booking, setBooking] = useState({ service: initialQuery, scheduledDate: '', address: '', additionalNotes: '', coordinates: null });
   const searchedService = filters.service.trim();
@@ -51,6 +52,7 @@ const SearchPage = () => {
       });
       setWorkers(data.data);
       setPagination(data.pagination);
+      setServiceUnavailable(data.serviceUnavailable || isKnownButInactiveService(filters.service));
     } catch {
       toast.error(t('search.failed'));
     } finally {
@@ -211,6 +213,7 @@ const SearchPage = () => {
             <SearchEmptyState
               searchedService={searchedService}
               searchedServiceIsListed={searchedServiceIsListed}
+              serviceUnavailable={serviceUnavailable}
               suggestedServices={suggestedServices}
               onSearchService={searchService}
               t={t}

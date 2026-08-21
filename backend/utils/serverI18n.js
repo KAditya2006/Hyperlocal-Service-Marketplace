@@ -55,6 +55,8 @@ const messages = {
     sentImage: 'Sent an image',
     sentImageNotification: '{{name}} sent an image',
     bookingRequiredFields: 'Worker, service, date, and address are required',
+    serviceUnavailableNow: 'This service is not available now. We currently support plumber, electrician, and home tutor services.',
+    workerDoesNotOfferService: 'This worker does not offer the selected service.',
     bookingFutureDate: 'Please choose a valid future date and time',
     onlyCustomersCreateBookings: 'Only customers can create bookings',
     workerNotFound: 'Worker not found',
